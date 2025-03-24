@@ -87,7 +87,6 @@ def update_user(request):
         user = User.objects.get(id=user_id)
         data = request.data
         
-        # Update user fields
         if 'username' in data:
             user.username = data['username']
         if 'email' in data:
