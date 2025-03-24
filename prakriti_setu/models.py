@@ -21,6 +21,7 @@ class User(models.Model):
     class Meta:
         verbose_name = _('user')
         verbose_name_plural = _('users')
+        app_label = 'prakriti_setu'
 
     def __str__(self):
         return self.username
