@@ -68,8 +68,10 @@ def get_user(request):
                 'id': user.id,
                 'username': user.username,
                 'email': user.email,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
+                'name': user.name,
+                'bio': user.bio,
+                'is_volunteer': user.is_volunteer,
+                'is_organization': user.is_organization
             }, status=status.HTTP_200_OK)
         except User.DoesNotExist:
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
