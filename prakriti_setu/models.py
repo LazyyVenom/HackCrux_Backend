@@ -4,7 +4,8 @@ from django.utils.translation import gettext_lazy as _
 class User(models.Model):
     username = models.CharField(max_length=150, unique=True)
     email = models.EmailField(_('email address'), unique=True)
-    name = models.CharField(_('first name'), max_length=150, blank=True)
+    password = models.CharField(max_length=128)  # Add this line for password
+    name = models.CharField(_('name'), max_length=150, blank=True)
     bio = models.TextField(blank=True, null=True)
     address = models.CharField(max_length=255, blank=True, null=True)
     city = models.CharField(max_length=100, blank=True, null=True)

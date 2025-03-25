@@ -6,7 +6,9 @@ from rest_framework.response import Response
 from rest_framework import status
 import json
 from .models import User
+from django.views.decorators.csrf import csrf_exempt
 
+@csrf_exempt
 @api_view(['POST'])
 def register_user(request):
     data = request.data
@@ -29,6 +31,7 @@ def register_user(request):
         'username': user.username,
     }, status=status.HTTP_201_CREATED)
 
+@csrf_exempt
 @api_view(['POST'])
 def login_user(request):
     data = request.data
@@ -51,6 +54,7 @@ def login_user(request):
     except User.DoesNotExist:
         return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
+@csrf_exempt
 @api_view(['POST'])
 def logout_user(request):
     # Clear session
@@ -58,6 +62,7 @@ def logout_user(request):
         del request.session['user_id']
     return Response({'message': 'Logged out successfully'}, status=status.HTTP_200_OK)
 
+@csrf_exempt
 @api_view(['GET'])
 def get_user(request):
     user_id = request.session.get('user_id')
@@ -77,6 +82,7 @@ def get_user(request):
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
     return Response({'error': 'Not authenticated'}, status=status.HTTP_401_UNAUTHORIZED)
 
+@csrf_exempt
 @api_view(['PUT'])
 def update_user(request):
     user_id = request.session.get('user_id')
