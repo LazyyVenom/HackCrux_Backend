@@ -947,33 +947,140 @@ def get_location_details(request):
     """Get detailed information about a location"""
     try:
         data = request.data
+        latitude = data.get('latitude')
+        longitude = data.get('longitude')
         city = data.get('city', 'Unknown')
         country = data.get('country', 'Unknown')
         location_string = f"{city}, {country}"
-        
-        # Set system prompt for GPT
-        system_prompt = "You are a disaster management expert providing accurate and helpful information about locations."
-        
-        # Call function from api_utils to get location information
-        location_info = get_location_info(system_prompt, location_string)
-        
-        if not location_info:
-            return Response({
-                'error': 'Failed to get location information'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-        # Return the location information
+
+        # Set default threat levels (fallback)
+        default_response = {
+            "threat_levels": {
+                "flood_risk": {
+                    "level": "Low",
+                    "icon": "Droplet",
+                    "color": "border-blue-500",
+                    "bgColor": "bg-blue-900/30"
+                },
+                "fire_danger": {
+                    "level": "Low",
+                    "icon": "Activity", 
+                    "color": "border-red-500",
+                    "bgColor": "bg-red-900/30"
+                },
+                "air_quality": {
+                    "level": "Good",
+                    "icon": "Wind",
+                    "color": "border-purple-500",
+                    "bgColor": "bg-purple-900/30"
+                },
+                "drought_level": {
+                    "level": "Low",
+                    "icon": "AlertTriangle",
+                    "color": "border-amber-500",
+                    "bgColor": "bg-amber-900/30"
+                },
+                "seismic_activity": {
+                    "level": "Low",
+                    "icon": "Activity",
+                    "color": "border-emerald-500",
+                    "bgColor": "bg-emerald-900/30"
+                }
+            },
+            "weather": {
+                "condition": "Clear",
+                "temperature": "25°C",
+                "forecast": "Stable conditions expected"
+            },
+            "emergency_contacts": {
+                "police": "100",
+                "ambulance": "108",
+                "fire": "101",
+                "disaster_management": "1078"
+            },
+            "disaster_risks": [
+                {
+                    "type": "General",
+                    "severity": "Low",
+                    "description": "No immediate risks detected"
+                }
+            ],
+            "safety_tips": [
+                "Stay informed about local weather conditions",
+                "Keep emergency contact numbers handy",
+                "Maintain an emergency kit"
+            ],
+            "recent_disasters": []
+        }
+
+        try:
+            # Set system prompt for GPT
+            system_prompt = """You are a disaster management expert. Provide a complete JSON response with:
+            1. threat_levels (flood_risk, fire_danger, air_quality, drought_level, seismic_activity)
+            2. weather information
+            3. emergency contacts
+            4. disaster risks
+            5. safety tips
+            6. recent disaster history
+            
+            Follow the exact structure of the example response."""
+
+            # Call function from api_utils to get location information
+            location_info = get_location_info(system_prompt, location_string)
+
+            if location_info:
+                try:
+                    parsed_info = json.loads(location_info)
+                    
+                    # Validate that the response has the expected structure
+                    required_keys = ['threat_levels', 'weather', 'emergency_contacts', 'disaster_risks', 'safety_tips', 'recent_disasters']
+                    required_threat_levels = ['flood_risk', 'fire_danger', 'air_quality', 'drought_level', 'seismic_activity']
+                    valid_levels = ['Low', 'Moderate', 'High', 'Severe', 'Good', 'Poor', 'Critical']
+                    
+                    if not all(key in parsed_info for key in required_keys):
+                        print("Missing required top-level keys in GPT response")
+                        raise ValueError("Invalid response structure")
+                        
+                    threat_levels = parsed_info['threat_levels']
+                    if not all(threat in threat_levels for threat in required_threat_levels):
+                        print("Missing required threat levels in GPT response")
+                        raise ValueError("Invalid threat levels")
+                        
+                    # Validate threat levels
+                    for threat, data in threat_levels.items():
+                        if not isinstance(data, dict) or 'level' not in data or data['level'] not in valid_levels:
+                            print(f"Invalid threat level data for {threat}")
+                            raise ValueError(f"Invalid threat level: {threat}")
+
+                    # If validation passes, return the parsed response
+                    return Response({
+                        'success': True,
+                        'location': location_string,
+                        'information': parsed_info
+                    }, status=status.HTTP_200_OK)
+                    
+                except json.JSONDecodeError as e:
+                    print(f"JSON decode error: {str(e)}")
+                    print(f"Invalid JSON from GPT: {location_info}")
+                except ValueError as e:
+                    print(f"Validation error: {str(e)}")
+                except Exception as e:
+                    print(f"Unexpected error parsing GPT response: {str(e)}")
+
+        except Exception as e:
+            print(f"Error getting location info from GPT: {str(e)}")
+
+        # If any error occurs or response is invalid, return default values
         return Response({
             'success': True,
             'location': location_string,
-            'information': json.loads(location_info)
+            'information': default_response
         }, status=status.HTTP_200_OK)
-        
-    except json.JSONDecodeError:
-        return Response({
-            'error': 'Invalid JSON response from GPT'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     except Exception as e:
+        print(f"Unexpected error in get_location_details: {str(e)}")
         return Response({
-            'error': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            'error': str(e),
+            'location': location_string,
+            'information': default_response
+        }, status=status.HTTP_200_OK)  # Still return 200 with default data

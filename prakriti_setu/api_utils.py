@@ -241,78 +241,39 @@ def get_location_info(system_prompt, user_location):
         user_location: The user's location (city, country)
     
     Returns:
-        JSON response with location information
+        JSON response with location information or None if error occurs
     """
     
     user_prompt = f"""
-    Provide detailed information about {user_location} in the following JSON format:
-    
-    1. Current weather conditions (approximate based on season and location)
-    2. Local disaster risks based on geography and season
-    3. Safety tips specific to this location
-    4. Emergency contact information for this location
-    5. Recent disaster history (if any)
-    6. Threat levels for the dashboard display
-    7. Try stay positive as much possible as these happens only rarely 
-
-    Format the response as a JSON object with the following structure:
+    Analyze and provide threat levels for {user_location}. Return ONLY a JSON object with the following structure:
     {{
-        "weather": {{
-            "condition": "Clear/Rainy/etc",
-            "temperature": "Approximate temperature",
-            "forecast": "Brief forecast"
-        }},
-        "disaster_risks": [
-            {{
-                "type": "Risk type",
-                "severity": "Low/Medium/High",
-                "description": "Brief description"
-            }}
-        ],
-        "safety_tips": [
-            "Tip 1", 
-            "Tip 2"
-        ],
-        "emergency_contacts": {{
-            "police": "Number",
-            "ambulance": "Number",
-            "fire": "Number",
-            "disaster_management": "Number"
-        }},
-        "recent_disasters": [
-            {{
-                "type": "Disaster type",
-                "date": "Approximate date",
-                "impact": "Brief description of impact"
-            }}
-        ],
         "threat_levels": {{
             "flood_risk": {{
-                "level": "Low/Moderate/High/Severe/Extreme",
+                "level": "Low",
                 "icon": "Droplet",
                 "color": "border-blue-500",
                 "bgColor": "bg-blue-900/30"
             }},
             "fire_danger": {{
-                "level": "Low/Moderate/High/Severe/Extreme",
+                "level": "Low",
                 "icon": "Activity",
                 "color": "border-red-500",
                 "bgColor": "bg-red-900/30"
             }},
             "air_quality": {{
-                "level": "Good/Moderate/Poor/Unhealthy/Hazardous",
+                "level": "Good",
                 "icon": "Wind",
                 "color": "border-purple-500",
                 "bgColor": "bg-purple-900/30"
             }},
             "drought_level": {{
-                "level": "None/Moderate/Severe/Extreme/Exceptional",
+                "level": "Low",
                 "icon": "AlertTriangle",
                 "color": "border-amber-500",
                 "bgColor": "bg-amber-900/30"
             }},
             "seismic_activity": {{
-                "level": "Low/Moderate/High/Very High/Extreme",
+                "level": "Low",
                 "icon": "Activity",
                 "color": "border-emerald-500",
                 "bgColor": "bg-emerald-900/30"
@@ -320,16 +281,60 @@ def get_location_info(system_prompt, user_location):
         }}
     }}
     
-    For the threat_levels, evaluate the current risk levels based on the location, season, and historical data.
-    Note: If you don't have specific information, provide reasonable estimates based on the general characteristics of the location.
+    For each threat level:
+    - "level" should be one of: "Low", "Moderate", "High", "Severe"
+    - Keep the icon, color, and bgColor values exactly as shown
+    - Base the levels on the location's geography, climate, and historical data
+    - If uncertain about a specific risk, default to "Low"
+    
+    Return ONLY the JSON object, no other text or explanations.
     """
     
     try:
+        # Get response from GPT
         response = callGPT(system_prompt, user_prompt)
-        return response
+        
+        if not response:
+            print(f"Empty response from GPT for location: {user_location}")
+            return None
+            
+        # Try to parse the response as JSON to validate it
+        try:
+            import json
+            parsed = json.loads(response)
+            
+            # Validate the structure
+            if not isinstance(parsed, dict) or 'threat_levels' not in parsed:
+                print(f"Invalid response structure from GPT: {response}")
+                return None
+                
+            # Validate each threat level
+            required_threats = ['flood_risk', 'fire_danger', 'air_quality', 'drought_level', 'seismic_activity']
+            valid_levels = ['Low', 'Moderate', 'High', 'Severe']
+            
+            threat_levels = parsed['threat_levels']
+            for threat in required_threats:
+                if threat not in threat_levels:
+                    print(f"Missing threat level: {threat}")
+                    return None
+                    
+                threat_data = threat_levels[threat]
+                if not isinstance(threat_data, dict):
+                    print(f"Invalid threat data for {threat}")
+                    return None
+                    
+                if 'level' not in threat_data or threat_data['level'] not in valid_levels:
+                    print(f"Invalid level for {threat}")
+                    return None
+            
+            return response
+            
+        except json.JSONDecodeError:
+            print(f"Invalid JSON response from GPT: {response}")
+            return None
+            
     except Exception as e:
-        error_message = f"Failed to get location information. Error: {e}"
-        print(error_message)
+        print(f"Error in get_location_info: {str(e)}")
         return None
 
 def scrape_ndtv_india_news():
