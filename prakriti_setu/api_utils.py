@@ -410,7 +410,7 @@ def scrape_news18_india():
     return news_list
 
 
-def scrape_hindu_state_news(state='andhra-pradesh', pages=1):
+def scrape_hindu_state_news(state='andhra-pradesh', pages=5):
     """
     Scrape news articles from The Hindu website for a specific state.
     
@@ -571,7 +571,7 @@ def extract_article_data_row(element):
         return None
 
 
-def scrape_hindu_national_news(pages=1):
+def scrape_hindu_national_news(pages=5):
     """
     Scrape national news articles from The Hindu website.
     
@@ -742,3 +742,130 @@ def display_articles(articles):
         print(f"URL: {article['article_url']}")
         print(f"Author: {article['author']} ({article['author_url']})")
         print("-" * 50)
+
+def filter_disaster_related_news(articles, limit=20):
+    """
+    Filter news articles to only include those related to disasters and natural calamities
+    
+    Args:
+        articles (list): List of news article dictionaries
+        limit (int): Maximum number of articles to return
+        
+    Returns:
+        list: Filtered list of disaster-related news articles
+    """
+    # Keywords related to disasters and natural calamities
+    disaster_keywords = [
+        'disaster', 'calamity', 'emergency', 'catastrophe', 'crisis',
+        'flood', 'earthquake', 'tsunami', 'cyclone', 'hurricane', 'typhoon',
+        'landslide', 'avalanche', 'drought', 'famine', 'wildfire', 'forest fire',
+        'volcanic', 'eruption', 'storm', 'blizzard', 'tornado', 'heatwave',
+        'extreme weather', 'climate', 'evacuation', 'rescue', 'relief',
+        'damage', 'devastation', 'victims', 'survivors', 'warning', 'alert',
+        'threat', 'hazard', 'rain', 'heavy rainfall', 'cloudburst'
+    ]
+    
+    # Filter articles based on keywords in title or category
+    disaster_articles = []
+    for article in articles:
+        title_lower = article['title'].lower()
+        
+        # Check if any keyword is in the title
+        if any(keyword in title_lower for keyword in disaster_keywords):
+            # Add to disaster articles list with high importance
+            article_copy = article.copy()
+            article_copy['importance'] = 'very-important'
+            disaster_articles.append(article_copy)
+            continue
+            
+        # Check if category contains disaster/weather related terms
+        if article['category'] != 'N/A':
+            category_lower = article['category'].lower()
+            if any(keyword in category_lower for keyword in ['weather', 'climate', 'environment', 'disaster']):
+                # Add to disaster articles with medium importance
+                article_copy = article.copy()
+                article_copy['importance'] = 'mild-important'
+                disaster_articles.append(article_copy)
+    
+    return disaster_articles[:limit]
+
+def analyze_news_for_disasters(articles, limit=20):
+    """
+    Use Gemini to analyze news articles and identify those related to disasters
+    
+    Args:
+        articles (list): List of news article dictionaries
+        limit (int): Maximum number of articles to return
+        
+    Returns:
+        list: List of disaster-related news articles
+    """
+    from .call_gemini import callGPT
+    
+    # First apply keyword filtering to get potential candidates
+    keyword_filtered = filter_disaster_related_news(articles)
+    
+    # If we have very few articles after keyword filtering, use all articles
+    if len(keyword_filtered) < 5:
+        articles_to_analyze = articles[:min(30, len(articles))]
+    else:
+        articles_to_analyze = keyword_filtered
+    
+    # Prepare the prompt for Gemini
+    titles = [f"{i+1}. {article['title']}" for i, article in enumerate(articles_to_analyze)]
+    titles_text = "\n".join(titles)
+    
+    system_prompt = """You are a disaster management expert. Analyze the provided news titles and identify those related to natural disasters, climate emergencies, or environmental hazards."""
+    
+    user_prompt = f"""
+    I need to identify which of the following news titles are related to natural disasters, environmental emergencies, or climate hazards.
+    
+    News Titles:
+    {titles_text}
+    
+    For each title, return only the number (index) if it's related to a disaster, environmental emergency, or climate hazard. 
+    Format your response as a simple comma-separated list of numbers, e.g., "1, 3, 5, 7".
+    Only include titles that are clearly related to natural disasters, emergencies, or climate issues.
+    """
+    
+    try:
+        # Get response from Gemini
+        response = callGPT(system_prompt, user_prompt)
+        
+        # Parse the response to get the indices
+        import re
+        # Extract all numbers from the response
+        indices = re.findall(r'\d+', response)
+        
+        # Convert to integers and adjust for 0-based indexing
+        indices = [int(idx) - 1 for idx in indices if idx.isdigit()]
+        
+        # Filter to valid indices
+        valid_indices = [idx for idx in indices if 0 <= idx < len(articles_to_analyze)]
+        
+        # Get the selected articles
+        selected_articles = [articles_to_analyze[idx] for idx in valid_indices]
+        
+        # If we have enough articles, return them
+        if len(selected_articles) >= 5:
+            return selected_articles[:limit]
+            
+        # Otherwise, combine with keyword filtered results to ensure we have enough
+        combined = []
+        seen_titles = set(article['title'] for article in selected_articles)
+        
+        # Add all AI-selected articles first
+        combined.extend(selected_articles)
+        
+        # Then add keyword-filtered articles that weren't already selected
+        for article in keyword_filtered:
+            if article['title'] not in seen_titles and len(combined) < limit:
+                combined.append(article)
+                seen_titles.add(article['title'])
+        
+        return combined[:limit]
+        
+    except Exception as e:
+        print(f"Error analyzing news with Gemini: {str(e)}")
+        # Fallback to keyword filtering if Gemini analysis fails
+        return keyword_filtered[:limit]
