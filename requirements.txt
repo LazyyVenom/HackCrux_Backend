@@ -7,3 +7,8 @@ qrcode
 Pillow  # Required by qrcode for image generation
 GoogleNews  # For fetching news articles
 requests  # For making HTTP requests
+beautifulsoup4  # For HTML parsing
+lxml[html_clean]  # Required for facebook_scraper
+requests-html  # Required for facebook_scraper
+facebook_scraper  # For scraping Facebook pages
+python-dateutil  # For date parsing

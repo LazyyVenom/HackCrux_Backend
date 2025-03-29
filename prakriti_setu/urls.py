@@ -34,6 +34,13 @@ urlpatterns = [
     path('news/national/', views.get_national_news, name='national_news'),
     path('news/state/', views.get_state_news, name='state_news'),
     
+    # New disaster news endpoints
+    path('news/social/', views.get_social_disaster_news, name='social_disaster_news'),
+    path('news/combined/', views.get_combined_disaster_news, name='combined_disaster_news'),
+    
     # Environmental metrics endpoint
     path('location/metrics/', views.get_environmental_metrics, name='environmental_metrics'),
+    
+    # Admin analytics endpoint
+    path('admin/analytics/', views.admin_analytics, name='admin_analytics'),
 ]
