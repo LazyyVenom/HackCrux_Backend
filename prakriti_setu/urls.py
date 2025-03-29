@@ -29,4 +29,11 @@ urlpatterns = [
     
     # Location information endpoint
     path('location/details/', views.get_location_details, name='get_location_details'),
+
+    # News API endpoints
+    path('news/national/', views.get_national_news, name='national_news'),
+    path('news/state/', views.get_state_news, name='state_news'),
+    
+    # Environmental metrics endpoint
+    path('location/metrics/', views.get_environmental_metrics, name='environmental_metrics'),
 ]

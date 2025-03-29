@@ -1084,3 +1084,181 @@ def get_location_details(request):
             'location': location_string,
             'information': default_response
         }, status=status.HTTP_200_OK)  # Still return 200 with default data
+        
+from prakriti_setu.api_utils import scrape_hindu_national_news, scrape_hindu_state_news,analyze_news_for_disasters,filter_disaster_related_news
+
+@csrf_exempt
+@api_view(['GET'])
+def get_national_news(request):
+    """Get national news from The Hindu website filtered for natural disasters and calamities"""
+    try:
+        # Get parameter for number of pages to scrape (default is 2)
+        # pages = int(request.GET.get('pages', 2))
+        pages = 5
+        
+        # Limit maximum pages to prevent overloading
+        if pages > 5:
+            pages = 5
+            
+        # Scrape national news
+        news_articles = scrape_hindu_national_news(pages=pages)
+        
+        # Filter for disaster-related news
+        try:
+            # Use Gemini to analyze and filter disaster news
+            disaster_news = analyze_news_for_disasters(news_articles, limit=20)
+            print(f"Disaster news found: {len(disaster_news)} articles")
+            
+            # If we found less than 5 disaster news articles, 
+            # fall back to keyword filtering to ensure we have some content
+            if len(disaster_news) < 5:
+                print("Found less than 5 disaster news, using keyword filtering")
+                disaster_news = filter_disaster_related_news(news_articles, limit=20)
+                print(f"Disaster news after keyword filtering: {len(disaster_news)} articles")
+            # If we STILL have less than 3 articles, just use all news
+            if len(disaster_news) < 3:
+                print("Found very few disaster news, using all national news")
+                disaster_news = news_articles
+        except Exception as e:
+            print(f"Error filtering disaster news: {str(e)}, using basic keyword filtering")
+            disaster_news = filter_disaster_related_news(news_articles, limit=20)
+        
+        # Process articles for frontend
+        processed_articles = []
+        for i, article in enumerate(disaster_news):
+            # Skip invalid or incomplete articles
+            if article['title'] == "N/A" or article['article_url'] == "N/A":
+                continue
+                
+            # Use importance from disaster filtering if available, or determine it
+            if 'importance' in article:
+                severity = article['importance']
+            else:
+                # Generate a severity level based on title keywords
+                severity = 'normal'
+                if any(keyword in article['title'].lower() for keyword in ['disaster', 'flood', 'earthquake', 'crisis', 'emergency', 'alert', 'warning']):
+                    severity = 'very-important'
+                elif any(keyword in article['title'].lower() for keyword in ['damage', 'risk', 'danger', 'threat', 'concern', 'issue']):
+                    severity = 'mild-important'
+            print(f"Article {i+1} severity: {article}")
+            # Create a processed article object
+            processed_articles.append({
+                'id': i + 1,
+                'title': article['title'],
+                'source': 'The Hindu',
+                'type': 'news',
+                'importance': severity,
+                'timestamp': '24 hours ago',  # Fixed timestamp as we don't have actual time
+                'state': article['category'] if article['category'] != 'N/A' else 'National',
+                'description': f"Disaster update from {article['category']} category." if article['category'] != 'N/A' else "National disaster update from The Hindu.",
+                'url': article['article_url'],
+                'author': article['author'] if article['author'] != 'N/A' else 'The Hindu Staff',
+                'imageUrl': 'https://images.unsplash.com/photo-1546422904-90eab23c3d7e?q=80&w=2972&auto=format&fit=crop'  # Default image
+            })
+            
+        return Response(processed_articles, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@csrf_exempt
+@api_view(['GET'])
+def get_state_news(request):
+    """Get state news from The Hindu website"""
+    try:
+        # Get parameters from request
+        state = request.GET.get('state', 'andhra-pradesh')
+        # pages = int(request.GET.get('pages', 1))
+        pages = 5
+        
+        # Limit maximum pages to prevent overloading
+        if pages > 5:
+            pages = 5
+            
+        # Map frontend state names to URL-friendly formats
+        state_mapping = {
+            'Andhra Pradesh': 'andhra-pradesh',
+            'Karnataka': 'karnataka',
+            'Kerala': 'kerala',
+            'Tamil Nadu': 'tamil-nadu',
+            'Telangana': 'telangana',
+            # Add more state mappings as needed
+        }
+        
+        # Convert state name if it's in the mapping
+        url_state = state_mapping.get(state, state).lower()
+        
+        # Scrape state news
+        news_articles = scrape_hindu_state_news(state=url_state, pages=pages)
+        
+        # Process articles for frontend
+        processed_articles = []
+        for i, article in enumerate(news_articles):
+            # Skip invalid or incomplete articles
+            if article['title'] == "N/A" or article['article_url'] == "N/A":
+                continue
+                
+            # Generate a severity level based on title keywords (simulating importance)
+            severity = 'normal'
+            if any(keyword in article['title'].lower() for keyword in ['disaster', 'flood', 'earthquake', 'crisis', 'emergency', 'alert', 'warning']):
+                severity = 'very-important'
+            elif any(keyword in article['title'].lower() for keyword in ['damage', 'risk', 'danger', 'threat', 'concern', 'issue']):
+                severity = 'mild-important'
+                
+            # Create a processed article object
+            processed_articles.append({
+                'id': i + 1,
+                'title': article['title'],
+                'source': 'The Hindu',
+                'type': 'news',
+                'importance': severity,
+                'timestamp': '24 hours ago',  # Fixed timestamp as we don't have actual time
+                'state': state.replace('-', ' ').title(),
+                'description': f"News from {state.replace('-', ' ').title()} region.",
+                'url': article['article_url'],
+                'author': article['author'] if article['author'] != 'N/A' else 'The Hindu Staff',
+                'imageUrl': 'https://images.unsplash.com/photo-1572949645841-094f3a9c4c94?q=80&w=2971&auto=format&fit=crop'  # Default image
+            })
+            
+        return Response(processed_articles, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@csrf_exempt
+@api_view(['POST'])
+def get_environmental_metrics(request):
+    """Get environmental metrics for a specific location"""
+    try:
+        data = request.data
+        location = data.get('location')
+        
+        if not location:
+            return Response({'error': 'Location is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Call the function from call_gemini.py to get metrics
+        from .call_gemini import get_environmental_metrics as get_metrics
+        metrics = get_metrics(location)
+        
+        return Response({
+            'success': True,
+            'location': location,
+            'metrics': metrics
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        # Log error but provide fallback metrics
+        print(f"Error getting environmental metrics: {str(e)}")
+        fallback_metrics = {
+            "flood_risk": 35,
+            "fire_danger": 45,
+            "air_quality": 60,
+            "seismic_activity": 25
+        }
+        
+        return Response({
+            'success': True,
+            'location': location if 'location' in locals() else 'Unknown',
+            'metrics': fallback_metrics,
+            'note': 'Using fallback metrics due to an error'
+        }, status=status.HTTP_200_OK)  # Return 200 with fallback data
