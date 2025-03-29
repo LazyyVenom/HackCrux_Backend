@@ -362,8 +362,8 @@ def scrape_ndtv_india_news():
     
     return news_list
 
-def scrape_ndtv_india_news():
-    url = "https://www.ndtv.com/india#pfrom=home-ndtv_mainnavigation"
+def scrape_news18_india():
+    url = "https://www.news18.com/india/"
     
     response = requests.get(url)
     
@@ -373,16 +373,27 @@ def scrape_ndtv_india_news():
     
     soup = BeautifulSoup(response.text, 'html.parser')
     
-    news_items = soup.find_all('h2', class_='NwsLstPg_ttl')
+    captions = soup.find_all('figcaption', class_='jsx-1976791735')
     
     news_list = []
     
-    for item in news_items:
-        link_element = item.find('a', class_='NwsLstPg_ttl-lnk')
+    for caption in captions:
+        title = caption.text.strip()
         
-        if link_element:
-            title = link_element.text.strip()
-            link = link_element.get('href')
+        parent = caption.find_parent('figure') or caption.find_parent('a') or caption.find_parent('article')
+        link = None
+        
+        if parent:
+            if parent.name == 'a':
+                link = parent.get('href')
+            else:
+                anchor = parent.find('a')
+                if anchor:
+                    link = anchor.get('href')
+        
+        if title and link:
+            if link.startswith('/'):
+                link = "https://www.news18.com" + link
             
             news_list.append({
                 'title': title,
