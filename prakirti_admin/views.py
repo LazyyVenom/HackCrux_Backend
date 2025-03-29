@@ -4,7 +4,7 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Admin, VolunteeringEvent, EventRegistration, DonationField, Donation
+from .models import Admin, VolunteeringEvent, EventRegistration, DonationField, Donation, ResourceCapacity
 from django.utils import timezone
 from prakriti_setu.models import User, SosAlert
 import json
@@ -930,5 +930,224 @@ def admin_update_sos_alert_status_by_city(request, city):
             }
         }, status=status.HTTP_200_OK)
         
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+# @token_required
+def get_resources(request):
+    """
+    Get all resource capacities
+    """
+    try:
+        resources = ResourceCapacity.objects.all().order_by('resource_type', 'state', 'city')
+        resources_data = []
+        
+        for resource in resources:
+            resources_data.append({
+                'id': resource.id,
+                'resource_type': resource.resource_type,
+                'name': resource.name,
+                'total_capacity': resource.total_capacity,
+                'available_capacity': resource.available_capacity,
+                'state': resource.state,
+                'city': resource.city,
+                'created_at': resource.created_at,
+                'updated_at': resource.updated_at,
+            })
+            
+        return Response(resources_data, status=status.HTTP_200_OK)
+    except Exception as e:
+        print(e)
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@token_required
+def get_resources_by_type(request, resource_type):
+    """
+    Get resources filtered by type
+    """
+    try:
+        resources = ResourceCapacity.objects.filter(resource_type=resource_type).order_by('state', 'city')
+        resources_data = []
+        
+        for resource in resources:
+            resources_data.append({
+                'id': resource.id,
+                'resource_type': resource.resource_type,
+                'name': resource.name,
+                'total_capacity': resource.total_capacity,
+                'available_capacity': resource.available_capacity,
+                'state': resource.state,
+                'city': resource.city,
+                'created_at': resource.created_at,
+                'updated_at': resource.updated_at,
+            })
+            
+        return Response(resources_data, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@token_required
+def get_resources_by_location(request):
+    """
+    Get resources filtered by state and/or city
+    """
+    try:
+        # Get query parameters
+        state = request.query_params.get('state', '')
+        city = request.query_params.get('city', '')
+        
+        # Filter resources
+        query_filter = {}
+        if state:
+            query_filter['state__iexact'] = state
+        if city:
+            query_filter['city__iexact'] = city
+            
+        if not query_filter:
+            return Response({'error': 'Please provide state and/or city parameters'}, 
+                           status=status.HTTP_400_BAD_REQUEST)
+        
+        resources = ResourceCapacity.objects.filter(**query_filter).order_by('resource_type')
+        resources_data = []
+        
+        for resource in resources:
+            resources_data.append({
+                'id': resource.id,
+                'resource_type': resource.resource_type,
+                'name': resource.name,
+                'total_capacity': resource.total_capacity,
+                'available_capacity': resource.available_capacity,
+                'state': resource.state,
+                'city': resource.city,
+                'created_at': resource.created_at,
+                'updated_at': resource.updated_at,
+            })
+            
+        return Response(resources_data, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@token_required
+def add_resource(request):
+    """
+    Add a new resource capacity
+    """
+    try:
+        data = request.data
+        
+        # Validate required fields
+        required_fields = ['resource_type', 'name', 'total_capacity', 'available_capacity', 'state', 'city']
+        for field in required_fields:
+            if field not in data:
+                return Response({'error': f'{field} is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Validate capacity values
+        if int(data['available_capacity']) > int(data['total_capacity']):
+            return Response({'error': 'Available capacity cannot exceed total capacity'}, 
+                           status=status.HTTP_400_BAD_REQUEST)
+        
+        # Create a new resource
+        resource = ResourceCapacity.objects.create(
+            resource_type=data['resource_type'],
+            name=data['name'],
+            total_capacity=data['total_capacity'],
+            available_capacity=data['available_capacity'],
+            state=data['state'],
+            city=data['city']
+        )
+        
+        return Response({
+            'success': True,
+            'resource': {
+                'id': resource.id,
+                'resource_type': resource.resource_type,
+                'name': resource.name,
+                'total_capacity': resource.total_capacity,
+                'available_capacity': resource.available_capacity,
+                'state': resource.state,
+                'city': resource.city,
+                'created_at': resource.created_at,
+                'updated_at': resource.updated_at,
+            }
+        }, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['PUT'])
+@token_required
+def update_resource(request, pk):
+    """
+    Update a resource capacity
+    """
+    try:
+        try:
+            resource = ResourceCapacity.objects.get(pk=pk)
+        except ResourceCapacity.DoesNotExist:
+            return Response({'error': 'Resource not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        data = request.data
+        
+        # Update resource fields if provided
+        if 'resource_type' in data:
+            resource.resource_type = data['resource_type']
+        if 'name' in data:
+            resource.name = data['name']
+        if 'total_capacity' in data:
+            resource.total_capacity = data['total_capacity']
+        if 'available_capacity' in data:
+            resource.available_capacity = data['available_capacity']
+        if 'state' in data:
+            resource.state = data['state']
+        if 'city' in data:
+            resource.city = data['city']
+            
+        # Validate capacity values
+        if resource.available_capacity > resource.total_capacity:
+            return Response({'error': 'Available capacity cannot exceed total capacity'}, 
+                           status=status.HTTP_400_BAD_REQUEST)
+            
+        resource.save()
+        
+        return Response({
+            'success': True,
+            'resource': {
+                'id': resource.id,
+                'resource_type': resource.resource_type,
+                'name': resource.name,
+                'total_capacity': resource.total_capacity,
+                'available_capacity': resource.available_capacity,
+                'state': resource.state,
+                'city': resource.city,
+                'created_at': resource.created_at,
+                'updated_at': resource.updated_at,
+            }
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['DELETE'])
+@token_required
+def delete_resource(request, pk):
+    """
+    Delete a resource capacity
+    """
+    try:
+        try:
+            resource = ResourceCapacity.objects.get(pk=pk)
+        except ResourceCapacity.DoesNotExist:
+            return Response({'error': 'Resource not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        resource_id = resource.id  # Store ID before deletion
+        resource.delete()
+        
+        return Response({
+            'success': True,
+            'message': 'Resource capacity deleted successfully',
+            'id': resource_id
+        }, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
