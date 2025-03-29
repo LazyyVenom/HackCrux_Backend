@@ -26,3 +26,32 @@ class User(models.Model):
 
     def __str__(self):
         return self.username
+
+
+class SosAlert(models.Model):
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('resolved', 'Resolved'),
+        ('false_alarm', 'False Alarm'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sos_alerts')
+    latitude = models.FloatField()
+    longitude = models.FloatField()
+    location_name = models.CharField(max_length=255)
+    city = models.CharField(max_length=100)
+    country = models.CharField(max_length=100)
+    message = models.TextField(blank=True, null=True)
+    contact_number = models.CharField(max_length=20, blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    resolved_at = models.DateTimeField(blank=True, null=True)
+    
+    class Meta:
+        verbose_name = 'SOS Alert'
+        verbose_name_plural = 'SOS Alerts'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"SOS from {self.user.username} at {self.created_at}"

@@ -5,10 +5,11 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 import json
-from .models import User
+from .models import User, SosAlert
 from django.views.decorators.csrf import csrf_exempt
 from .utils import generate_jwt_token, token_required  # Import our JWT utilities
-from prakirti_admin.models import VolunteeringEvent, EventRegistration, DonationField, Donation
+from prakirti_admin.models import VolunteeringEvent, EventRegistration, DonationField, Donation, Admin
+from .api_utils import callGPT, get_location_info  # Import the missing function
 import uuid
 from datetime import datetime, timedelta
 import qrcode
@@ -17,6 +18,9 @@ import base64
 from django.utils import timezone
 import jwt
 from django.conf import settings
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
 
 @csrf_exempt
 @api_view(['POST'])
@@ -593,3 +597,383 @@ def verify_donation_details(request, token):
         print(f"Error in verify_donation_details: {str(e)}")
         print(traceback.format_exc())
         return Response({'error': f'Error verifying donation: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@csrf_exempt
+@api_view(['POST'])
+@token_required
+def create_sos_alert(request):
+    """Create a new SOS alert"""
+    try:
+        data = request.data
+        latitude = data.get('latitude')
+        longitude = data.get('longitude')
+        location_name = data.get('location_name')
+        city = data.get('city')
+        country = data.get('country')
+        message = data.get('message', '')
+        contact_number = data.get('contact_number', '')
+        
+        # Validate required fields
+        if not all([latitude, longitude, city, country]):
+            return Response({
+                'error': 'Latitude, longitude, city and country are required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+        # Get the user from the token
+        username = request.username
+        try:
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        # Create SOS alert
+        sos_alert = SosAlert.objects.create(
+            user=user,
+            latitude=latitude,
+            longitude=longitude,
+            location_name=location_name or f"{city}, {country}",
+            city=city,
+            country=country,
+            message=message,
+            contact_number=contact_number,
+            status='active'
+        )
+        
+        # Send email notification to admins
+        send_sos_email_notification(sos_alert, user)
+        
+        return Response({
+            'success': True,
+            'message': 'SOS alert created successfully',
+            'alert': {
+                'id': sos_alert.id,
+                'latitude': sos_alert.latitude,
+                'longitude': sos_alert.longitude,
+                'location_name': sos_alert.location_name,
+                'city': sos_alert.city,
+                'country': sos_alert.country,
+                'status': sos_alert.status,
+                'created_at': sos_alert.created_at
+            }
+        }, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+def send_sos_email_notification(sos_alert, user):
+    """Send email notification to admins for SOS alert"""
+    try:
+        # Get all admin emails
+        admin_emails = list(Admin.objects.values_list('email', flat=True))
+        
+        # Get organization users who can also handle SOS alerts
+        org_emails = list(User.objects.filter(is_organization=True).values_list('email', flat=True))
+        
+        # Combine email lists
+        recipient_emails = admin_emails + org_emails
+        
+        # Remove duplicates
+        recipient_emails = list(set(recipient_emails))
+        
+        if not recipient_emails:
+            # Log that no recipients were found
+            print("Warning: No admin or organization emails found for SOS alert notification")
+            return
+            
+        # Format created_at time in a human-readable format
+        formatted_time = sos_alert.created_at.strftime("%B %d, %Y at %I:%M %p")
+        
+        # Prepare context for email template
+        context = {
+            'alert_id': sos_alert.id,
+            'username': user.name or user.username,
+            'location_name': sos_alert.location_name,
+            'city': sos_alert.city,
+            'country': sos_alert.country,
+            'latitude': sos_alert.latitude,
+            'longitude': sos_alert.longitude,
+            'contact_number': sos_alert.contact_number or "Not provided",
+            'message': sos_alert.message or "No message provided",
+            'created_at': formatted_time,
+            'dashboard_url': f"{settings.FRONTEND_URL}/admin/sos-tracker"
+        }
+        
+        # Render HTML content using the template
+        html_content = render_to_string('email.html', context)
+        
+        # Create plain text version of the email
+        text_content = strip_tags(html_content)
+        
+        # Create email
+        subject = f"URGENT: SOS Alert from {user.name or user.username} in {sos_alert.city}"
+        from_email = settings.DEFAULT_FROM_EMAIL
+        
+        # Create message
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=text_content,
+            from_email=from_email,
+            to=recipient_emails
+        )
+        
+        # Attach HTML content
+        email.attach_alternative(html_content, "text/html")
+        
+        # Send email
+        email.send()
+        
+        print(f"SOS alert email notification sent to {len(recipient_emails)} recipients")
+        
+    except Exception as e:
+        # Log the error but don't fail the request
+        print(f"Error sending SOS alert email notification: {str(e)}")
+
+@csrf_exempt
+@api_view(['GET'])
+@token_required
+def get_user_sos_alerts(request):
+    """Get all SOS alerts created by the current user"""
+    try:
+        # Get the username from the token
+        username = request.username
+        
+        # Get the user
+        try:
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        # Get all SOS alerts for the user
+        sos_alerts = SosAlert.objects.filter(user=user).order_by('-created_at')
+        
+        alerts_data = []
+        for alert in sos_alerts:
+            alerts_data.append({
+                'id': alert.id,
+                'latitude': alert.latitude,
+                'longitude': alert.longitude,
+                'location_name': alert.location_name,
+                'city': alert.city,
+                'country': alert.country,
+                'message': alert.message,
+                'contact_number': alert.contact_number,
+                'status': alert.status,
+                'created_at': alert.created_at,
+                'updated_at': alert.updated_at,
+                'resolved_at': alert.resolved_at
+            })
+            
+        return Response(alerts_data, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@csrf_exempt
+@api_view(['GET'])
+@token_required
+def get_all_active_sos_alerts(request):
+    """Get all active SOS alerts (only accessible by organizations and admins)"""
+    try:
+        # Get the username from the token
+        username = request.username
+        
+        # Check if the user is an organization or admin
+        try:
+            user = User.objects.get(username=username)
+            if not user.is_organization:
+                # Check if user is an admin
+                try:
+                    Admin.objects.get(email=username)
+                except Admin.DoesNotExist:
+                    return Response({'error': 'Unauthorized access'}, status=status.HTTP_403_FORBIDDEN)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        # Get all active SOS alerts
+        sos_alerts = SosAlert.objects.filter(status='active').order_by('-created_at')
+        
+        alerts_data = []
+        for alert in sos_alerts:
+            alerts_data.append({
+                'id': alert.id,
+                'user': {
+                    'id': alert.user.id,
+                    'name': alert.user.name or alert.user.username,
+                    'username': alert.user.username
+                },
+                'latitude': alert.latitude,
+                'longitude': alert.longitude,
+                'location_name': alert.location_name,
+                'city': alert.city,
+                'country': alert.country,
+                'message': alert.message,
+                'contact_number': alert.contact_number,
+                'status': alert.status,
+                'created_at': alert.created_at,
+                'updated_at': alert.updated_at
+            })
+            
+        return Response(alerts_data, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@csrf_exempt
+@api_view(['PUT'])
+@token_required
+def update_sos_alert_status(request, alert_id):
+    """Update the status of an SOS alert"""
+    try:
+        # Get the username from the token
+        username = request.username
+        
+        # Get the SOS alert
+        try:
+            sos_alert = SosAlert.objects.get(pk=alert_id)
+        except SosAlert.DoesNotExist:
+            return Response({'error': 'SOS alert not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        # Check if the user is the creator of the alert, an organization, or an admin
+        is_authorized = False
+        try:
+            user = User.objects.get(username=username)
+            if user.id == sos_alert.user.id or user.is_organization:
+                is_authorized = True
+        except User.DoesNotExist:
+            # Check if user is an admin
+            try:
+                Admin.objects.get(email=username)
+                is_authorized = True
+            except Admin.DoesNotExist:
+                pass
+                
+        if not is_authorized:
+            return Response({'error': 'Unauthorized access'}, status=status.HTTP_403_FORBIDDEN)
+            
+        # Update the status
+        data = request.data
+        new_status = data.get('status')
+        
+        if not new_status:
+            return Response({'error': 'Status is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if new_status not in [status for status, _ in SosAlert.STATUS_CHOICES]:
+            return Response({'error': 'Invalid status'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        sos_alert.status = new_status
+        
+        # If status is being changed to 'resolved', update resolved_at timestamp
+        if new_status == 'resolved' and not sos_alert.resolved_at:
+            sos_alert.resolved_at = timezone.now()
+            
+        sos_alert.save()
+        
+        return Response({
+            'success': True,
+            'alert': {
+                'id': sos_alert.id,
+                'status': sos_alert.status,
+                'updated_at': sos_alert.updated_at,
+                'resolved_at': sos_alert.resolved_at
+            }
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@csrf_exempt
+@api_view(['GET'])
+@token_required
+def get_sos_alerts_by_city(request):
+    """Get SOS alerts grouped by city (only accessible by organizations and admins)"""
+    try:
+        # Get the username from the token
+        username = request.username
+        
+        # Check if the user is an organization or admin
+        try:
+            user = User.objects.get(username=username)
+            if not user.is_organization:
+                # Check if user is an admin
+                try:
+                    Admin.objects.get(email=username)
+                except Admin.DoesNotExist:
+                    return Response({'error': 'Unauthorized access'}, status=status.HTTP_403_FORBIDDEN)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        # Get all active SOS alerts
+        sos_alerts = SosAlert.objects.filter(status='active').order_by('-created_at')
+        
+        # Group by city
+        cities = {}
+        for alert in sos_alerts:
+            city = alert.city
+            if city not in cities:
+                cities[city] = {
+                    'city': city,
+                    'country': alert.country,
+                    'count': 0,
+                    'alerts': []
+                }
+                
+            cities[city]['count'] += 1
+            cities[city]['alerts'].append({
+                'id': alert.id,
+                'user': {
+                    'id': alert.user.id,
+                    'name': alert.user.name or alert.user.username,
+                    'username': alert.user.username
+                },
+                'latitude': alert.latitude,
+                'longitude': alert.longitude,
+                'location_name': alert.location_name,
+                'message': alert.message,
+                'contact_number': alert.contact_number,
+                'created_at': alert.created_at
+            })
+            
+        # Convert dictionary to list
+        result = list(cities.values())
+        return Response(result, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@csrf_exempt
+@api_view(['POST'])
+@token_required
+def get_location_details(request):
+    """Get detailed information about a location"""
+    try:
+        data = request.data
+        city = data.get('city', 'Unknown')
+        country = data.get('country', 'Unknown')
+        location_string = f"{city}, {country}"
+        
+        # Set system prompt for GPT
+        system_prompt = "You are a disaster management expert providing accurate and helpful information about locations."
+        
+        # Call function from api_utils to get location information
+        location_info = get_location_info(system_prompt, location_string)
+        
+        if not location_info:
+            return Response({
+                'error': 'Failed to get location information'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # Return the location information
+        return Response({
+            'success': True,
+            'location': location_string,
+            'information': json.loads(location_info)
+        }, status=status.HTTP_200_OK)
+        
+    except json.JSONDecodeError:
+        return Response({
+            'error': 'Invalid JSON response from GPT'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except Exception as e:
+        return Response({
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

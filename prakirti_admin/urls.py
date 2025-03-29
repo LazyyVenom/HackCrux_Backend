@@ -21,4 +21,12 @@ urlpatterns = [
     path('donations/', views.get_donations, name='get_donations'),
     path('donations/fields/', views.get_donation_fields, name='get_donation_fields'),
     path('donations/<int:pk>/status/', views.update_donation_status, name='update_donation_status'),
+    
+    # SOS management endpoints
+    path('sos/all/', views.admin_get_all_sos_alerts, name='admin_get_all_sos_alerts'),
+    path('sos/by-city/', views.admin_get_sos_alerts_by_city, name='admin_get_sos_alerts_by_city'),
+    path('sos/city/<str:city>/', views.admin_get_sos_alerts_by_city_name, name='admin_get_sos_alerts_by_city_name'),
+    path('sos/<int:alert_id>/status/', views.admin_update_sos_alert_status, name='admin_update_sos_alert_status'),
+    path('sos/<str:city>/status/', views.admin_update_sos_alert_status_by_city, name='admin_update_sos_alert_status_by_city'),
+    path('sos/statistics/', views.admin_get_sos_statistics, name='admin_get_sos_statistics'),
 ]

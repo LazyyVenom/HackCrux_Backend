@@ -5,6 +5,8 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Admin, VolunteeringEvent, EventRegistration, DonationField, Donation
+from django.utils import timezone
+from prakriti_setu.models import User, SosAlert
 import json
 import hashlib
 from prakriti_setu.utils import generate_jwt_token, token_required, verify_jwt_token
@@ -590,7 +592,7 @@ def update_donation_status(request, pk):
         
         # If status is changed to completed, update completed_at timestamp
         if data['status'] == 'completed' and not donation.completed_at:
-            from django.utils import timezone
+            
             donation.completed_at = timezone.now()
             
         donation.save()
@@ -603,5 +605,330 @@ def update_donation_status(request, pk):
                 'completed_at': donation.completed_at,
             }
         }, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@csrf_exempt
+@api_view(['GET'])
+@token_required
+def admin_get_all_sos_alerts(request):
+    """Get all SOS alerts with additional details for admin dashboard"""
+    try:
+        # Verify admin access
+        username = request.username
+        try:
+            admin = Admin.objects.get(email=username)
+        except Admin.DoesNotExist:
+            # Check if the user is an organization with admin privileges
+            try:
+                user = User.objects.get(username=username)
+                if not user.is_organization:
+                    return Response({'error': 'Unauthorized access'}, status=status.HTTP_403_FORBIDDEN)
+            except User.DoesNotExist:
+                return Response({'error': 'Unauthorized access'}, status=status.HTTP_403_FORBIDDEN)
+                
+        # Get all SOS alerts, including resolved and false alarms
+        alerts = SosAlert.objects.all().order_by('-created_at')
+        
+        alerts_data = []
+        for alert in alerts:
+            alerts_data.append({
+                'id': alert.id,
+                'user': {
+                    'id': alert.user.id,
+                    'username': alert.user.username,
+                    'name': alert.user.name or alert.user.username,
+                    'contact_number': alert.contact_number or 'Not provided'
+                },
+                'latitude': alert.latitude,
+                'longitude': alert.longitude,
+                'location_name': alert.location_name,
+                'city': alert.city,
+                'country': alert.country,
+                'message': alert.message,
+                'status': alert.status,
+                'created_at': alert.created_at,
+                'updated_at': alert.updated_at,
+                'resolved_at': alert.resolved_at
+            })
+            
+        return Response(alerts_data, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@csrf_exempt
+@api_view(['GET'])
+@token_required
+def admin_get_sos_alerts_by_city(request):
+    """Get all SOS alerts grouped by city for admin dashboard"""
+    try:
+        # Verify admin access
+        username = request.username
+        try:
+            admin = Admin.objects.get(email=username)
+        except Admin.DoesNotExist:
+            # Check if the user is an organization with admin privileges
+            try:
+                user = User.objects.get(username=username)
+                if not user.is_organization:
+                    return Response({'error': 'Unauthorized access'}, status=status.HTTP_403_FORBIDDEN)
+            except User.DoesNotExist:
+                return Response({'error': 'Unauthorized access'}, status=status.HTTP_403_FORBIDDEN)
+                
+        # Get active SOS alerts grouped by city
+        alerts = SosAlert.objects.filter(status='active').order_by('-created_at')
+            
+        # Group by city
+        cities = {}
+        for alert in alerts:
+            city_name = alert.city
+            if city_name not in cities:
+                cities[city_name] = {
+                    'city': city_name,
+                    'country': alert.country,
+                    'count': 0,
+                    'alerts': []
+                }
+                
+            cities[city_name]['count'] += 1
+            cities[city_name]['alerts'].append({
+                'id': alert.id,
+                'user': {
+                    'id': alert.user.id,
+                    'username': alert.user.username,
+                    'name': alert.user.name or alert.user.username
+                },
+                'latitude': alert.latitude,
+                'longitude': alert.longitude,
+                'location_name': alert.location_name,
+                'message': alert.message,
+                'contact_number': alert.contact_number,
+                'created_at': alert.created_at
+            })
+            
+        # Convert dictionary to list
+        result = list(cities.values())
+        return Response(result, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@csrf_exempt
+@api_view(['GET'])
+@token_required
+def admin_get_sos_alerts_by_city_name(request, city):
+    """Get all SOS alerts for a specific city"""
+    try:
+        # Verify admin access
+        username = request.username
+        try:
+            admin = Admin.objects.get(email=username)
+        except Admin.DoesNotExist:
+            # Check if the user is an organization with admin privileges
+            try:
+                user = User.objects.get(username=username)
+                if not user.is_organization:
+                    return Response({'error': 'Unauthorized access'}, status=status.HTTP_403_FORBIDDEN)
+            except User.DoesNotExist:
+                return Response({'error': 'Unauthorized access'}, status=status.HTTP_403_FORBIDDEN)
+                
+        # Get active SOS alerts for the specified city
+        alerts = SosAlert.objects.filter(status='active', city__iexact=city).order_by('-created_at')
+        
+        if not alerts:
+            return Response([], status=status.HTTP_200_OK)
+            
+        alerts_data = []
+        for alert in alerts:
+            alerts_data.append({
+                'id': alert.id,
+                'user': {
+                    'id': alert.user.id,
+                    'username': alert.user.username,
+                    'name': alert.user.name or alert.user.username,
+                    'contact_number': alert.contact_number or 'Not provided'
+                },
+                'latitude': alert.latitude,
+                'longitude': alert.longitude,
+                'location_name': alert.location_name,
+                'message': alert.message,
+                'created_at': alert.created_at,
+                'updated_at': alert.updated_at
+            })
+            
+        return Response(alerts_data, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@csrf_exempt
+@api_view(['PUT'])
+@token_required
+def admin_update_sos_alert_status(request, alert_id):
+    """Update status of a SOS alert (respond, resolve, etc.)"""
+    try:
+        # Verify admin access
+        username = request.username
+        try:
+            admin = Admin.objects.get(email=username)
+        except Admin.DoesNotExist:
+            # Check if the user is an organization with admin privileges
+            try:
+                user = User.objects.get(username=username)
+                if not user.is_organization:
+                    return Response({'error': 'Unauthorized access'}, status=status.HTTP_403_FORBIDDEN)
+            except User.DoesNotExist:
+                return Response({'error': 'Unauthorized access'}, status=status.HTTP_403_FORBIDDEN)
+                
+        # Get the SOS alert
+        try:
+            sos_alert = SosAlert.objects.get(pk=alert_id)
+        except SosAlert.DoesNotExist:
+            return Response({'error': 'SOS alert not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        # Update status
+        data = request.data
+        new_status = data.get('status')
+        
+        if not new_status or new_status not in ['active', 'responding', 'resolved', 'false_alarm']:
+            return Response({'error': 'Invalid status. Must be active, responding, resolved, or false_alarm'}, 
+                           status=status.HTTP_400_BAD_REQUEST)
+                           
+        # Update the alert
+        sos_alert.status = new_status
+        
+        # Set resolved_at if status is changing to resolved or false_alarm
+        if new_status in ['resolved', 'false_alarm'] and sos_alert.status != 'resolved':
+            sos_alert.resolved_at = timezone.now()
+            
+        sos_alert.save()
+        
+        return Response({
+            'success': True,
+            'message': f'SOS alert status updated to {new_status}',
+            'alert': {
+                'id': sos_alert.id,
+                'status': sos_alert.status,
+                'updated_at': sos_alert.updated_at,
+                'resolved_at': sos_alert.resolved_at
+            }
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@csrf_exempt
+@api_view(['GET'])
+@token_required
+def admin_get_sos_statistics(request):
+    """Get SOS alert statistics for admin dashboard"""
+    try:
+        # Verify admin access
+        username = request.username
+        try:
+            admin = Admin.objects.get(email=username)
+        except Admin.DoesNotExist:
+            # Check if the user is an organization with admin privileges
+            try:
+                user = User.objects.get(username=username)
+                if not user.is_organization:
+                    return Response({'error': 'Unauthorized access'}, status=status.HTTP_403_FORBIDDEN)
+            except User.DoesNotExist:
+                return Response({'error': 'Unauthorized access'}, status=status.HTTP_403_FORBIDDEN)
+                
+        # Get statistics
+        total_alerts = SosAlert.objects.count()
+        active_alerts = SosAlert.objects.filter(status='active').count()
+        responding_alerts = SosAlert.objects.filter(status='responding').count()
+        resolved_alerts = SosAlert.objects.filter(status='resolved').count()
+        false_alarm_alerts = SosAlert.objects.filter(status='false_alarm').count()
+        
+        # Get cities with active alerts
+        cities_with_alerts = SosAlert.objects.filter(status='active').values('city').distinct().count()
+        
+        # Count high priority alerts (3+ alerts in same city)
+        city_alert_counts = {}
+        for alert in SosAlert.objects.filter(status='active'):
+            city = alert.city
+            if city not in city_alert_counts:
+                city_alert_counts[city] = 0
+            city_alert_counts[city] += 1
+        
+        high_priority_count = sum(1 for count in city_alert_counts.values() if count >= 3)
+        
+        return Response({
+            'total_alerts': total_alerts,
+            'active_alerts': active_alerts,
+            'responding': responding_alerts,
+            'resolved': resolved_alerts,
+            'false_alarms': false_alarm_alerts,
+            'total_cities': cities_with_alerts,
+            'high_priority': high_priority_count
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@csrf_exempt
+@api_view(['PUT'])
+@token_required
+def admin_update_sos_alert_status_by_city(request, city):
+    """Update status of all SOS alerts in a specific city"""
+    try:
+        # Verify admin access
+        username = request.username
+        try:
+            admin = Admin.objects.get(email=username)
+        except Admin.DoesNotExist:
+            # Check if the user is an organization with admin privileges
+            try:
+                user = User.objects.get(username=username)
+                if not user.is_organization:
+                    return Response({'error': 'Unauthorized access'}, status=status.HTTP_403_FORBIDDEN)
+            except User.DoesNotExist:
+                return Response({'error': 'Unauthorized access'}, status=status.HTTP_403_FORBIDDEN)
+                
+        # Update status
+        data = request.data
+        new_status = data.get('status')
+        
+        if not new_status or new_status not in ['active', 'responding', 'resolved', 'false_alarm']:
+            return Response({'error': 'Invalid status. Must be active, responding, resolved, or false_alarm'}, 
+                           status=status.HTTP_400_BAD_REQUEST)
+                           
+        # Get all active SOS alerts for the city
+        alerts = SosAlert.objects.filter(city__iexact=city, status='active')
+        
+        if not alerts:
+            return Response({'error': f'No active SOS alerts found for {city}'}, status=status.HTTP_404_NOT_FOUND)
+            
+        # Update all alerts
+        updated_count = 0
+        updated_ids = []
+        current_time = timezone.now()
+        
+        for alert in alerts:
+            alert.status = new_status
+            
+            # Set resolved_at if status is changing to resolved or false_alarm
+            if new_status in ['resolved', 'false_alarm']:
+                alert.resolved_at = current_time
+                
+            alert.save()
+            updated_count += 1
+            updated_ids.append(alert.id)
+            
+        return Response({
+            'success': True,
+            'message': f'Updated {updated_count} SOS alerts in {city} to {new_status}',
+            'updated_alerts': {
+                'count': updated_count,
+                'ids': updated_ids,
+                'city': city,
+                'status': new_status
+            }
+        }, status=status.HTTP_200_OK)
+        
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

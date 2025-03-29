@@ -232,6 +232,146 @@ def fetch_disaster_news(query="natural disaster india", num_articles=20, output_
     else:
         return result
 
+def get_location_info(system_prompt, user_location):
+    """
+    Get detailed information about a location using GPT
+    
+    Args:
+        system_prompt: The system prompt for GPT
+        user_location: The user's location (city, country)
+    
+    Returns:
+        JSON response with location information
+    """
+    
+    user_prompt = f"""
+    Provide detailed information about {user_location} in the following JSON format:
+    
+    1. Current weather conditions (approximate based on season and location)
+    2. Local disaster risks based on geography and season
+    3. Safety tips specific to this location
+    4. Emergency contact information for this location
+    5. Recent disaster history (if any)
+    6. Threat levels for the dashboard display
+    
+    Format the response as a JSON object with the following structure:
+    {{
+        "weather": {{
+            "condition": "Clear/Rainy/etc",
+            "temperature": "Approximate temperature",
+            "forecast": "Brief forecast"
+        }},
+        "disaster_risks": [
+            {{
+                "type": "Risk type",
+                "severity": "Low/Medium/High",
+                "description": "Brief description"
+            }}
+        ],
+        "safety_tips": [
+            "Tip 1", 
+            "Tip 2"
+        ],
+        "emergency_contacts": {{
+            "police": "Number",
+            "ambulance": "Number",
+            "fire": "Number",
+            "disaster_management": "Number"
+        }},
+        "recent_disasters": [
+            {{
+                "type": "Disaster type",
+                "date": "Approximate date",
+                "impact": "Brief description of impact"
+            }}
+        ],
+        "threat_levels": {{
+            "flood_risk": {{
+                "level": "Low/Moderate/High/Severe/Extreme",
+                "icon": "Droplet",
+                "color": "border-blue-500",
+                "bgColor": "bg-blue-900/30"
+            }},
+            "fire_danger": {{
+                "level": "Low/Moderate/High/Severe/Extreme",
+                "icon": "Activity",
+                "color": "border-red-500",
+                "bgColor": "bg-red-900/30"
+            }},
+            "air_quality": {{
+                "level": "Good/Moderate/Poor/Unhealthy/Hazardous",
+                "icon": "Wind",
+                "color": "border-purple-500",
+                "bgColor": "bg-purple-900/30"
+            }},
+            "drought_level": {{
+                "level": "None/Moderate/Severe/Extreme/Exceptional",
+                "icon": "AlertTriangle",
+                "color": "border-amber-500",
+                "bgColor": "bg-amber-900/30"
+            }},
+            "seismic_activity": {{
+                "level": "Low/Moderate/High/Very High/Extreme",
+                "icon": "Activity",
+                "color": "border-emerald-500",
+                "bgColor": "bg-emerald-900/30"
+            }}
+        }}
+    }}
+    
+    For the threat_levels, evaluate the current risk levels based on the location, season, and historical data.
+    Note: If you don't have specific information, provide reasonable estimates based on the general characteristics of the location.
+    """
+    
+    try:
+        response = callGPT(system_prompt, user_prompt)
+        return response
+    except Exception as e:
+        error_message = f"Failed to get location information. Error: {e}"
+        print(error_message)
+        return None
+
+# def get_trending_hashtags(count=50, woeid=23424848):
+#     url = f"https://api.twitter.com/1.1/trends/place.json?id={woeid}"
+    
+#     headers = {
+#         "Authorization": f"Bearer {X_BEARER}"
+#     }
+    
+#     try:
+#         response = requests.get(url, headers=headers)
+#         response.raise_for_status()
+#         data = response.json()
+        
+#         trends = data[0]['trends']
+#         hashtags = []
+        
+#         for trend in trends[:count]:
+#             if trend['name'].startswith('#'):
+#                 hashtags.append({
+#                     'name': trend['name'],
+#                     'url': trend['url'],
+#                     'tweet_volume': trend['tweet_volume']
+#                 })
+        
+#         return hashtags
+#     except requests.RequestException as e:
+#         error_message = f"Failed to fetch trending hashtags. Error: {e}"
+#         print(error_message)
+#         return []
+
+# if __name__ == "__main__":
+#     # Example usage
+#     # system_prompt = "You are a helpful assistant."
+#     # user_prompt = "What is the weather like today?"
+#     # response = callGPT(system_prompt, user_prompt)
+#     # print("GPT Response:", response)
+
+#     # articles = get_news_articles("climate change")
+#     # print("News Articles:", articles)
+
+#     hashtags = get_trending_hashtags()
+#     print("Trending Hashtags:", hashtags)
 def scrape_ndtv_india_news():
     url = "https://www.ndtv.com/india#pfrom=home-ndtv_mainnavigation"
     
