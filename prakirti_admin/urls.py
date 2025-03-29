@@ -18,4 +18,7 @@ urlpatterns = [
     
     # Donation management endpoints
     path('donations/initialize/', views.initialize_donation_fields, name='initialize_donation_fields'),
+    path('donations/', views.get_donations, name='get_donations'),
+    path('donations/fields/', views.get_donation_fields, name='get_donation_fields'),
+    path('donations/<int:pk>/status/', views.update_donation_status, name='update_donation_status'),
 ]

@@ -569,6 +569,9 @@ def verify_donation_details(request, token):
         donation_id = payload.get('donation_id')
         qr_code_id = payload.get('qr_code_id')
         
+        if not donation_id or not qr_code_id:
+            return Response({'error': 'Missing donation details in token'}, status=status.HTTP_400_BAD_REQUEST)
+        
         # Get the donation
         try:
             donation = Donation.objects.get(id=donation_id, qr_code_id=qr_code_id)
@@ -585,4 +588,8 @@ def verify_donation_details(request, token):
         }, status=status.HTTP_200_OK)
         
     except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        # More detailed error logging
+        import traceback
+        print(f"Error in verify_donation_details: {str(e)}")
+        print(traceback.format_exc())
+        return Response({'error': f'Error verifying donation: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

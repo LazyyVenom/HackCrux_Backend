@@ -490,3 +490,118 @@ def initialize_donation_fields(request):
 
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@token_required
+def get_donations(request):
+    """
+    Get all donations with fields information
+    """
+    try:
+        donations = Donation.objects.all().order_by('-created_at')
+        donations_data = []
+        
+        for donation in donations:
+            # Get the donation field details
+            donation_field = donation.donation_field
+            
+            # Format user information based on anonymity setting
+            user_info = {
+                'name': 'Anonymous' if donation.is_anonymous else donation.donor_name or (donation.user.name if donation.user else 'Unknown'),
+                'email': '' if donation.is_anonymous else donation.donor_email or (donation.user.email if donation.user else ''),
+            }
+            
+            donations_data.append({
+                'id': donation.id,
+                'field': {
+                    'id': donation_field.id,
+                    'title': donation_field.title,
+                    'description': donation_field.description,
+                    'icon': donation_field.icon,
+                    'color': donation_field.color,
+                },
+                'user': user_info,
+                'amount': float(donation.amount),
+                'transaction_id': donation.transaction_id,
+                'status': donation.status,
+                'is_anonymous': donation.is_anonymous,
+                'message': donation.message,
+                'created_at': donation.created_at,
+                'completed_at': donation.completed_at,
+            })
+            
+        return Response(donations_data, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@token_required
+def get_donation_fields(request):
+    """
+    Get all donation fields with their statistics
+    """
+    try:
+        fields = DonationField.objects.all().order_by('title')
+        fields_data = []
+        
+        for field in fields:
+            fields_data.append({
+                'id': field.id,
+                'title': field.title,
+                'description': field.description,
+                'icon': field.icon,
+                'color': field.color,
+                'target_amount': float(field.target_amount),
+                'raised_amount': float(field.raised_amount),
+                'progress_percentage': field.progress_percentage,
+                'is_active': field.is_active,
+                'created_at': field.created_at,
+                'updated_at': field.updated_at,
+            })
+            
+        return Response(fields_data, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['PUT'])
+@token_required
+def update_donation_status(request, pk):
+    """
+    Update the status of a donation
+    """
+    try:
+        try:
+            donation = Donation.objects.get(pk=pk)
+        except Donation.DoesNotExist:
+            return Response({'error': 'Donation not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        data = request.data
+        
+        if 'status' not in data:
+            return Response({'error': 'Status is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        # Validate status
+        valid_statuses = [s[0] for s in Donation.STATUS_CHOICES]
+        if data['status'] not in valid_statuses:
+            return Response({'error': f'Invalid status. Must be one of: {", ".join(valid_statuses)}'}, 
+                          status=status.HTTP_400_BAD_REQUEST)
+            
+        donation.status = data['status']
+        
+        # If status is changed to completed, update completed_at timestamp
+        if data['status'] == 'completed' and not donation.completed_at:
+            from django.utils import timezone
+            donation.completed_at = timezone.now()
+            
+        donation.save()
+        
+        return Response({
+            'success': True,
+            'donation': {
+                'id': donation.id,
+                'status': donation.status,
+                'completed_at': donation.completed_at,
+            }
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
