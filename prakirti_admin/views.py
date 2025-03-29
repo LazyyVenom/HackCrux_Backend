@@ -58,10 +58,17 @@ def admin_register(request):
         name = data.get('name')
         email = data.get('email')
         password = data.get('password')
+        secret_key = data.get('secret_key')
         
-        if not name or not email or not password:
-            return Response({'error': 'Name, email, and password are required'}, status=status.HTTP_400_BAD_REQUEST)
+        if not name or not email or not password or not secret_key:
+            return Response({'error': 'Name, email, password, and secret key are required'}, status=status.HTTP_400_BAD_REQUEST)
         
+        # Validate the secret key
+        # Using a hardcoded value here, but in a production app, consider using environment variables
+        valid_secret_key = "prakriti_admin_key_2025"
+        if secret_key != valid_secret_key:
+            return Response({'error': 'Invalid secret key'}, status=status.HTTP_403_FORBIDDEN)
+            
         # Check if admin with this email already exists
         if Admin.objects.filter(email=email).exists():
             return Response({'error': 'Email already in use'}, status=status.HTTP_400_BAD_REQUEST)
