@@ -331,47 +331,6 @@ def get_location_info(system_prompt, user_location):
         print(error_message)
         return None
 
-# def get_trending_hashtags(count=50, woeid=23424848):
-#     url = f"https://api.twitter.com/1.1/trends/place.json?id={woeid}"
-    
-#     headers = {
-#         "Authorization": f"Bearer {X_BEARER}"
-#     }
-    
-#     try:
-#         response = requests.get(url, headers=headers)
-#         response.raise_for_status()
-#         data = response.json()
-        
-#         trends = data[0]['trends']
-#         hashtags = []
-        
-#         for trend in trends[:count]:
-#             if trend['name'].startswith('#'):
-#                 hashtags.append({
-#                     'name': trend['name'],
-#                     'url': trend['url'],
-#                     'tweet_volume': trend['tweet_volume']
-#                 })
-        
-#         return hashtags
-#     except requests.RequestException as e:
-#         error_message = f"Failed to fetch trending hashtags. Error: {e}"
-#         print(error_message)
-#         return []
-
-# if __name__ == "__main__":
-#     # Example usage
-#     # system_prompt = "You are a helpful assistant."
-#     # user_prompt = "What is the weather like today?"
-#     # response = callGPT(system_prompt, user_prompt)
-#     # print("GPT Response:", response)
-
-#     # articles = get_news_articles("climate change")
-#     # print("News Articles:", articles)
-
-#     hashtags = get_trending_hashtags()
-#     print("Trending Hashtags:", hashtags)
 def scrape_ndtv_india_news():
     url = "https://www.ndtv.com/india#pfrom=home-ndtv_mainnavigation"
     
@@ -400,7 +359,6 @@ def scrape_ndtv_india_news():
             })
     
     return news_list
-
 
 def scrape_ndtv_india_news():
     url = "https://www.ndtv.com/india#pfrom=home-ndtv_mainnavigation"
