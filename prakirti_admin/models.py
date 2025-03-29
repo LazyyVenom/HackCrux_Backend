@@ -118,3 +118,18 @@ class Donation(models.Model):
         if self.is_anonymous:
             return f"Anonymous - {self.donation_field.title} - {self.amount}"
         return f"{self.donor_name or 'Unknown'} - {self.donation_field.title} - {self.amount}"
+
+
+class ResourceCapacity(models.Model):
+    """Tracks the capacity of resources available for events"""
+    resource_type = models.CharField(max_length=100)
+    name = models.CharField(max_length=100)
+    total_capacity = models.PositiveIntegerField()
+    available_capacity = models.PositiveIntegerField()
+    state = models.CharField(max_length=100)
+    city = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.resource_type} - {self.location}"
