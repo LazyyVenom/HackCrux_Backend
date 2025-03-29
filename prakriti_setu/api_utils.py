@@ -1,6 +1,7 @@
 from GoogleNews import GoogleNews
 import requests
 import json
+from bs4 import BeautifulSoup
 
 API_KEY = "12c6ced676b749258b582edd76600aa4"
 X_API_KEY = "McrnrlNgOrlAhF305v95DYCjR"
@@ -231,44 +232,61 @@ def fetch_disaster_news(query="natural disaster india", num_articles=20, output_
     else:
         return result
 
-# def get_trending_hashtags(count=50, woeid=23424848):
-#     url = f"https://api.twitter.com/1.1/trends/place.json?id={woeid}"
+def scrape_ndtv_india_news():
+    url = "https://www.ndtv.com/india#pfrom=home-ndtv_mainnavigation"
     
-#     headers = {
-#         "Authorization": f"Bearer {X_BEARER}"
-#     }
+    response = requests.get(url)
     
-#     try:
-#         response = requests.get(url, headers=headers)
-#         response.raise_for_status()
-#         data = response.json()
+    if response.status_code != 200:
+        print(f"Failed to retrieve the webpage: Status code {response.status_code}")
+        return []
+    
+    soup = BeautifulSoup(response.text, 'html.parser')
+    
+    news_items = soup.find_all('h2', class_='NwsLstPg_ttl')
+    
+    news_list = []
+    
+    for item in news_items:
+        link_element = item.find('a', class_='NwsLstPg_ttl-lnk')
         
-#         trends = data[0]['trends']
-#         hashtags = []
+        if link_element:
+            title = link_element.text.strip()
+            link = link_element.get('href')
+            
+            news_list.append({
+                'title': title,
+                'link': link
+            })
+    
+    return news_list
+
+
+def scrape_ndtv_india_news():
+    url = "https://www.ndtv.com/india#pfrom=home-ndtv_mainnavigation"
+    
+    response = requests.get(url)
+    
+    if response.status_code != 200:
+        print(f"Failed to retrieve the webpage: Status code {response.status_code}")
+        return []
+    
+    soup = BeautifulSoup(response.text, 'html.parser')
+    
+    news_items = soup.find_all('h2', class_='NwsLstPg_ttl')
+    
+    news_list = []
+    
+    for item in news_items:
+        link_element = item.find('a', class_='NwsLstPg_ttl-lnk')
         
-#         for trend in trends[:count]:
-#             if trend['name'].startswith('#'):
-#                 hashtags.append({
-#                     'name': trend['name'],
-#                     'url': trend['url'],
-#                     'tweet_volume': trend['tweet_volume']
-#                 })
-        
-#         return hashtags
-#     except requests.RequestException as e:
-#         error_message = f"Failed to fetch trending hashtags. Error: {e}"
-#         print(error_message)
-#         return []
-
-# if __name__ == "__main__":
-#     # Example usage
-#     # system_prompt = "You are a helpful assistant."
-#     # user_prompt = "What is the weather like today?"
-#     # response = callGPT(system_prompt, user_prompt)
-#     # print("GPT Response:", response)
-
-#     # articles = get_news_articles("climate change")
-#     # print("News Articles:", articles)
-
-#     hashtags = get_trending_hashtags()
-#     print("Trending Hashtags:", hashtags)
+        if link_element:
+            title = link_element.text.strip()
+            link = link_element.get('href')
+            
+            news_list.append({
+                'title': title,
+                'link': link
+            })
+    
+    return news_list
