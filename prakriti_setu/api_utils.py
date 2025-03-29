@@ -253,7 +253,8 @@ def get_location_info(system_prompt, user_location):
     4. Emergency contact information for this location
     5. Recent disaster history (if any)
     6. Threat levels for the dashboard display
-    
+    7. Try stay positive as much possible as these happens only rarely 
+
     Format the response as a JSON object with the following structure:
     {{
         "weather": {{
@@ -355,7 +356,8 @@ def scrape_ndtv_india_news():
             
             news_list.append({
                 'title': title,
-                'link': link
+                'link': link,
+                'img_url': ""
             })
     
     return news_list
@@ -384,7 +386,8 @@ def scrape_ndtv_india_news():
             
             news_list.append({
                 'title': title,
-                'link': link
+                'link': link,
+                'img_url': ""
             })
     
     return news_list
