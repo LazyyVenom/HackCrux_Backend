@@ -26,4 +26,7 @@ urlpatterns = [
     path('sos/active/', views.get_all_active_sos_alerts, name='get_all_active_sos_alerts'),
     path('sos/<int:alert_id>/update/', views.update_sos_alert_status, name='update_sos_alert_status'),
     path('sos/by-city/', views.get_sos_alerts_by_city, name='get_sos_alerts_by_city'),
+    
+    # Location information endpoint
+    path('location/details/', views.get_location_details, name='get_location_details'),
 ]

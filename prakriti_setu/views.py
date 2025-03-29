@@ -9,6 +9,7 @@ from .models import User, SosAlert
 from django.views.decorators.csrf import csrf_exempt
 from .utils import generate_jwt_token, token_required  # Import our JWT utilities
 from prakirti_admin.models import VolunteeringEvent, EventRegistration, DonationField, Donation, Admin
+from .api_utils import callGPT, get_location_info  # Import the missing function
 import uuid
 from datetime import datetime, timedelta
 import qrcode
@@ -938,3 +939,41 @@ def get_sos_alerts_by_city(request):
         
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@csrf_exempt
+@api_view(['POST'])
+@token_required
+def get_location_details(request):
+    """Get detailed information about a location"""
+    try:
+        data = request.data
+        city = data.get('city', 'Unknown')
+        country = data.get('country', 'Unknown')
+        location_string = f"{city}, {country}"
+        
+        # Set system prompt for GPT
+        system_prompt = "You are a disaster management expert providing accurate and helpful information about locations."
+        
+        # Call function from api_utils to get location information
+        location_info = get_location_info(system_prompt, location_string)
+        
+        if not location_info:
+            return Response({
+                'error': 'Failed to get location information'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # Return the location information
+        return Response({
+            'success': True,
+            'location': location_string,
+            'information': json.loads(location_info)
+        }, status=status.HTTP_200_OK)
+        
+    except json.JSONDecodeError:
+        return Response({
+            'error': 'Invalid JSON response from GPT'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except Exception as e:
+        return Response({
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -5,3 +5,5 @@ pyjwt
 psycopg2
 qrcode
 Pillow  # Required by qrcode for image generation
+GoogleNews  # For fetching news articles
+requests  # For making HTTP requests
