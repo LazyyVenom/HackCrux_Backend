@@ -121,9 +121,9 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'  # Change this based on your email provider
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'your-email@gmail.com'  # Replace with your email
-EMAIL_HOST_PASSWORD = 'your-app-password'  # App password for Gmail
-DEFAULT_FROM_EMAIL = 'Prakriti Setu <your-email@gmail.com>'
+EMAIL_HOST_USER = 'piyushdayal108@gmail.com'
+EMAIL_HOST_PASSWORD = 'mxrf uchq efmw bjke'
+DEFAULT_FROM_EMAIL = 'Sankat Mochan <sankat.mochan@gmail.com>'
 
 # Frontend URL for email links
 FRONTEND_URL = 'http://localhost:5173'  # Change to your React frontend URL in production
