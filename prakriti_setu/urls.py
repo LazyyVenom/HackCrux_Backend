@@ -19,4 +19,11 @@ urlpatterns = [
     path('donations/verify/<str:token>/', views.verify_donation, name='verify_donation'),
     path('donations/verify-details/<str:token>/', views.verify_donation_details, name='verify_donation_details'),
     path('user/donations/', views.get_user_donations, name='user_donations'),
+    
+    # SOS Alert endpoints
+    path('sos/create/', views.create_sos_alert, name='create_sos_alert'),
+    path('sos/user/', views.get_user_sos_alerts, name='get_user_sos_alerts'),
+    path('sos/active/', views.get_all_active_sos_alerts, name='get_all_active_sos_alerts'),
+    path('sos/<int:alert_id>/update/', views.update_sos_alert_status, name='update_sos_alert_status'),
+    path('sos/by-city/', views.get_sos_alerts_by_city, name='get_sos_alerts_by_city'),
 ]

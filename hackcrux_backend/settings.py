@@ -109,8 +109,21 @@ USE_I18N = True
 
 USE_TZ = True
 
-STATIC_URL = 'static/'
+# Static files (CSS, JavaScript, Images)
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
+# Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-FRONTEND_URL = 'http://192.168.21.186:5173'  # Updated with your local IP for cross-device access
+# Email configuration settings
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'  # Change this based on your email provider
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'your-email@gmail.com'  # Replace with your email
+EMAIL_HOST_PASSWORD = 'your-app-password'  # App password for Gmail
+DEFAULT_FROM_EMAIL = 'Prakriti Setu <your-email@gmail.com>'
+
+# Frontend URL for email links
+FRONTEND_URL = 'http://localhost:5173'  # Change to your React frontend URL in production
