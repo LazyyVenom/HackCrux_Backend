@@ -7,6 +7,7 @@ from rest_framework import status
 import json
 from .models import User
 from django.views.decorators.csrf import csrf_exempt
+from .utils import generate_jwt_token, token_required  # Import our JWT utilities
 
 @csrf_exempt
 @api_view(['POST'])
@@ -41,13 +42,17 @@ def login_user(request):
     try:
         user = User.objects.get(email=email)
         if check_password(password, user.password):
-            # Create simple session in request.session
+            # Create session in request.session
             request.session['user_id'] = user.id
+            
+            # Generate JWT token
+            token = generate_jwt_token(user.username)
             
             return Response({
                 'message': 'Login successful',
                 'user_id': user.id,
                 'username': user.username,
+                'token': token,  # Return the token to the client
             }, status=status.HTTP_200_OK)
         else:
             return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
@@ -64,33 +69,33 @@ def logout_user(request):
 
 @csrf_exempt
 @api_view(['GET'])
+@token_required  # Apply our token_required decorator for protected routes
 def get_user(request):
-    user_id = request.session.get('user_id')
-    if user_id:
-        try:
-            user = User.objects.get(id=user_id)
-            return Response({
-                'id': user.id,
-                'username': user.username,
-                'email': user.email,
-                'name': user.name,
-                'bio': user.bio,
-                'is_volunteer': user.is_volunteer,
-                'is_organization': user.is_organization
-            }, status=status.HTTP_200_OK)
-        except User.DoesNotExist:
-            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
-    return Response({'error': 'Not authenticated'}, status=status.HTTP_401_UNAUTHORIZED)
+    # Get username from the request added by the decorator
+    username = request.username
+    
+    try:
+        user = User.objects.get(username=username)
+        return Response({
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'name': user.name,
+            'bio': user.bio,
+            'is_volunteer': user.is_volunteer,
+            'is_organization': user.is_organization
+        }, status=status.HTTP_200_OK)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
 
 @csrf_exempt
 @api_view(['PUT'])
+@token_required  # Apply our token_required decorator for protected routes
 def update_user(request):
-    user_id = request.session.get('user_id')
-    if not user_id:
-        return Response({'error': 'Not authenticated'}, status=status.HTTP_401_UNAUTHORIZED)
+    username = request.username
     
     try:
-        user = User.objects.get(id=user_id)
+        user = User.objects.get(username=username)
         data = request.data
         
         if 'username' in data:

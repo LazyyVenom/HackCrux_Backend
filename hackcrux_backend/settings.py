@@ -1,10 +1,16 @@
+import os
 from pathlib import Path
 
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = "django-insecure-h9j%w!3@wkc(^0r9+9fc2i#9rmt)=4igl9j_h7p(fz-!s$c=hm"
 
-SECRET_KEY = 'django-insecure-=382op#jb1&ht((4^g)e2yb0#6k3vb*1-7c*qpp27kzxn&hnyi'
+# JWT settings
+JWT_SECRET = os.environ.get('JWT_SECRET', SECRET_KEY)
 
+# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = []
@@ -19,6 +25,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',  # Add corsheaders app
     'prakriti_setu',
+    'prakirti_admin',  # Added prakirti_admin app
 ]
 
 MIDDLEWARE = [
