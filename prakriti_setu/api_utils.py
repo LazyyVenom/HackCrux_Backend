@@ -2,6 +2,7 @@ from GoogleNews import GoogleNews
 import requests
 import json
 from bs4 import BeautifulSoup
+import time
 
 API_KEY = "12c6ced676b749258b582edd76600aa4"
 X_API_KEY = "McrnrlNgOrlAhF305v95DYCjR"
@@ -402,3 +403,180 @@ def scrape_news18_india():
             })
     
     return news_list
+
+
+def scrape_hindu_state_news(state='andhra-pradesh', pages=1):
+    """
+    Scrape news articles from The Hindu website for a specific state.
+    
+    Args:
+        state (str): The state name to fetch news for, default is 'andhra-pradesh'
+        pages (int): Number of pages to scrape, default is 1
+        
+    Returns:
+        list: A list of dictionaries containing news article details
+    """
+    all_articles = []
+    
+    for page in range(1, pages + 1):
+        # Construct URL with page parameter
+        if page == 1:
+            url = f"https://www.thehindu.com/news/national/{state}/"
+        else:
+            url = f"https://www.thehindu.com/news/national/{state}/?page={page}"
+        
+        print(f"Scraping page {page} of {pages}: {url}")
+        
+        # Send HTTP request with user agent to avoid blocking
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code != 200:
+            print(f"Failed to retrieve page {page}. Status code: {response.status_code}")
+            continue
+        
+        # Parse HTML
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Find all news article elements (both types)
+        page_articles = []
+        
+        # Process "element smaller" type articles
+        article_elements = soup.find_all('div', class_='element smaller')
+        for element in article_elements:
+            article_data = extract_article_data_smaller(element)
+            if article_data:
+                page_articles.append(article_data)
+        
+        # Process "element row-element" type articles
+        row_elements = soup.find_all('div', class_='element row-element')
+        for element in row_elements:
+            article_data = extract_article_data_row(element)
+            if article_data:
+                page_articles.append(article_data)
+        
+        # Add articles from this page to the total collection
+        all_articles.extend(page_articles)
+        print(f"Found {len(page_articles)} articles on page {page}")
+        
+        # Add a small delay between page requests to avoid overwhelming the server
+        if page < pages:
+            time.sleep(1)
+    
+    print(f"Scraped a total of {len(all_articles)} articles from {pages} pages")
+    return all_articles
+
+def extract_article_data_smaller(element):
+    """
+    Extract article data from 'element smaller' type elements
+    """
+    article_data = {}
+    
+    try:
+        # Extract location/category
+        label_div = element.find('div', class_='label')
+        if label_div and label_div.find('a'):
+            article_data['category'] = label_div.find('a').text.strip()
+            article_data['category_url'] = label_div.find('a')['href']
+        else:
+            article_data['category'] = "N/A"
+            article_data['category_url'] = "N/A"
+        
+        # Extract article title and URL
+        title_element = element.find('h3', class_='title big')
+        if title_element and title_element.find('a'):
+            article_data['title'] = title_element.find('a').text.strip()
+            article_data['article_url'] = title_element.find('a')['href']
+        else:
+            article_data['title'] = "N/A"
+            article_data['article_url'] = "N/A"
+        
+        # Extract author information
+        by_line = element.find('div', class_='by-line')
+        if by_line and by_line.find('div', class_='author-name'):
+            author_element = by_line.find('div', class_='author-name')
+            if author_element.find('a'):
+                article_data['author'] = author_element.find('a').text.strip()
+                article_data['author_url'] = author_element.find('a')['href']
+            else:
+                article_data['author'] = author_element.text.strip()
+                article_data['author_url'] = "N/A"
+        else:
+            article_data['author'] = "N/A"
+            article_data['author_url'] = "N/A"
+        
+        return article_data
+        
+    except Exception as e:
+        print(f"Error parsing 'element smaller' article: {e}")
+        return None
+
+def extract_article_data_row(element):
+    """
+    Extract article data from 'element row-element' type elements
+    """
+    article_data = {}
+    
+    try:
+        # For row-element, we might not have a category label in the same way
+        article_data['category'] = "N/A"
+        article_data['category_url'] = "N/A"
+        
+        # Get the first link which typically contains the article URL
+        first_link = element.find('a')
+        if first_link:
+            # Store the article URL
+            article_data['article_url'] = first_link['href']
+        else:
+            article_data['article_url'] = "N/A"
+        
+        # Extract article title from right-content section
+        right_content = element.find('div', class_='right-content')
+        if right_content:
+            title_element = right_content.find('h3', class_='title big')
+            if title_element and title_element.find('a'):
+                article_data['title'] = title_element.find('a').text.strip()
+                # Update article URL if we find it here (should be the same as above)
+                article_data['article_url'] = title_element.find('a')['href']
+            else:
+                article_data['title'] = "N/A"
+        else:
+            article_data['title'] = "N/A"
+        
+        # Extract author information
+        by_line = element.find('div', class_='by-line')
+        if by_line and by_line.find('div', class_='author-name'):
+            author_element = by_line.find('div', class_='author-name')
+            if author_element.find('a'):
+                article_data['author'] = author_element.find('a').text.strip()
+                article_data['author_url'] = author_element.find('a')['href']
+            else:
+                article_data['author'] = author_element.text.strip()
+                article_data['author_url'] = "N/A"
+        else:
+            article_data['author'] = "N/A"
+            article_data['author_url'] = "N/A"
+        
+        return article_data
+        
+    except Exception as e:
+        print(f"Error parsing 'element row-element' article: {e}")
+        return None
+
+def display_articles(articles):
+    """
+    Display the scraped articles in a readable format.
+    """
+    if not articles:
+        print("No articles found.")
+        return
+    
+    for i, article in enumerate(articles, 1):
+        print(f"\nArticle {i}:")
+        print(f"Category: {article['category']} ({article['category_url']})")
+        print(f"Title: {article['title']}")
+        print(f"URL: {article['article_url']}")
+        print(f"Author: {article['author']} ({article['author_url']})")
+        print("-" * 50)
