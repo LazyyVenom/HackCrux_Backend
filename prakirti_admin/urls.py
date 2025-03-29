@@ -29,4 +29,12 @@ urlpatterns = [
     path('sos/<int:alert_id>/status/', views.admin_update_sos_alert_status, name='admin_update_sos_alert_status'),
     path('sos/<str:city>/status/', views.admin_update_sos_alert_status_by_city, name='admin_update_sos_alert_status_by_city'),
     path('sos/statistics/', views.admin_get_sos_statistics, name='admin_get_sos_statistics'),
+    
+    # Resource capacity management endpoints
+    path('resources/', views.get_resources, name='get_resources'),
+    path('resources/type/<str:resource_type>/', views.get_resources_by_type, name='get_resources_by_type'),
+    path('resources/location/', views.get_resources_by_location, name='get_resources_by_location'),
+    path('resources/add/', views.add_resource, name='add_resource'),
+    path('resources/<int:pk>/update/', views.update_resource, name='update_resource'),
+    path('resources/<int:pk>/delete/', views.delete_resource, name='delete_resource'),
 ]
