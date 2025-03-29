@@ -4,7 +4,7 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Admin, VolunteeringEvent, EventRegistration
+from .models import Admin, VolunteeringEvent, EventRegistration, DonationField, Donation
 import json
 import hashlib
 from prakriti_setu.utils import generate_jwt_token, token_required, verify_jwt_token
@@ -349,5 +349,144 @@ def get_event_registrations(request, pk):
             })
             
         return Response(registrations_data, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET', 'PUT'])
+@token_required
+def admin_profile(request):
+    """
+    GET: Get admin profile details
+    PUT: Update admin profile details
+    """
+    admin_email = request.username  # Set by token_required decorator
+    
+    try:
+        admin = Admin.objects.get(email=admin_email)
+        
+        if request.method == 'GET':
+            return Response({
+                'success': True,
+                'admin': {
+                    'id': admin.id,
+                    'name': admin.name,
+                    'email': admin.email,
+                    'created_at': admin.created_at,
+                    'updated_at': admin.updated_at
+                }
+            }, status=status.HTTP_200_OK)
+            
+        elif request.method == 'PUT':
+            data = request.data
+            
+            # Update name if provided
+            if 'name' in data:
+                admin.name = data['name']
+                
+            # Update password if provided
+            if 'current_password' in data and 'new_password' in data:
+                if admin.password != hash_password(data['current_password']):
+                    return Response({'error': 'Current password is incorrect'}, 
+                                 status=status.HTTP_400_BAD_REQUEST)
+                admin.password = hash_password(data['new_password'])
+                
+            admin.save()
+            
+            return Response({
+                'success': True,
+                'admin': {
+                    'id': admin.id,
+                    'name': admin.name,
+                    'email': admin.email,
+                    'created_at': admin.created_at,
+                    'updated_at': admin.updated_at
+                }
+            }, status=status.HTTP_200_OK)
+            
+    except Admin.DoesNotExist:
+        return Response({'error': 'Admin not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+def initialize_donation_fields(request):
+    """Initialize or update donation fields with predefined data"""
+    try:
+        donation_fields_data = [
+            {
+                "title": "Disaster Relief Fund",
+                "description": "Provides immediate assistance to communities affected by natural disasters like floods and earthquakes.",
+                "icon": "LifeBuoy",
+                "color": "red",
+                "target_amount": 50000,
+                "is_active": True
+            },
+            {
+                "title": "Tree Plantation Drive",
+                "description": "Support our initiative to plant 10,000 trees across vulnerable ecosystems to combat deforestation.",
+                "icon": "Trees",
+                "color": "emerald",
+                "target_amount": 30000,
+                "is_active": True
+            },
+            {
+                "title": "Clean Water Project",
+                "description": "Help provide clean drinking water to rural communities through sustainable water management systems.",
+                "icon": "Droplet",
+                "color": "blue",
+                "target_amount": 45000,
+                "is_active": True
+            },
+            {
+                "title": "Environmental Education",
+                "description": "Fund educational programs that raise awareness about environmental conservation among school children.",
+                "icon": "BookOpen",
+                "color": "amber",
+                "target_amount": 25000,
+                "is_active": True
+            },
+            {
+                "title": "Climate Action Fund",
+                "description": "Support research and implementation of climate change mitigation strategies in vulnerable regions.",
+                "icon": "Leaf",
+                "color": "indigo",
+                "target_amount": 60000,
+                "is_active": True
+            },
+            {
+                "title": "General Donation",
+                "description": "Your contribution will be allocated where it's needed most across all our environmental initiatives.",
+                "icon": "Heart",
+                "color": "purple",
+                "target_amount": 0,
+                "is_active": True
+            }
+        ]
+
+        created_count = 0
+        updated_count = 0
+
+        for field_data in donation_fields_data:
+            field, created = DonationField.objects.update_or_create(
+                title=field_data['title'],
+                defaults={
+                    'description': field_data['description'],
+                    'icon': field_data['icon'],
+                    'color': field_data['color'],
+                    'target_amount': field_data['target_amount'],
+                    'is_active': field_data['is_active']
+                }
+            )
+            if created:
+                created_count += 1
+            else:
+                updated_count += 1
+
+        return Response({
+            'success': True,
+            'message': f'Successfully initialized donation fields. Created: {created_count}, Updated: {updated_count}'
+        }, status=status.HTTP_200_OK)
+
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

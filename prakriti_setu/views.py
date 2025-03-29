@@ -8,7 +8,15 @@ import json
 from .models import User
 from django.views.decorators.csrf import csrf_exempt
 from .utils import generate_jwt_token, token_required  # Import our JWT utilities
-from prakirti_admin.models import VolunteeringEvent, EventRegistration
+from prakirti_admin.models import VolunteeringEvent, EventRegistration, DonationField, Donation
+import uuid
+from datetime import datetime, timedelta
+import qrcode
+from io import BytesIO
+import base64
+from django.utils import timezone
+import jwt
+from django.conf import settings
 
 @csrf_exempt
 @api_view(['POST'])
@@ -259,5 +267,322 @@ def get_user_registrations(request):
             })
         
         return Response(registrations_data, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET', 'PUT'])
+@token_required
+def user_profile(request):
+    """
+    GET: Get user profile details
+    PUT: Update user profile details
+    """
+    username = request.username  # Set by token_required decorator
+    
+    try:
+        user = User.objects.get(username=username)
+        
+        if request.method == 'GET':
+            return Response({
+                'success': True,
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'email': user.email,
+                    'name': user.name,
+                    'bio': user.bio,
+                    'address': user.address,
+                    'city': user.city,
+                    'state': user.state,
+                    'postal_code': user.postal_code,
+                    'is_volunteer': user.is_volunteer,
+                    'is_organization': user.is_organization,
+                    'created_at': user.created_at,
+                    'updated_at': user.updated_at
+                }
+            }, status=status.HTTP_200_OK)
+            
+        elif request.method == 'PUT':
+            data = request.data
+            
+            # Update fields if provided
+            if 'name' in data:
+                user.name = data['name']
+            if 'bio' in data:
+                user.bio = data['bio']
+            if 'address' in data:
+                user.address = data['address']
+            if 'city' in data:
+                user.city = data['city']
+            if 'state' in data:
+                user.state = data['state']
+            if 'postal_code' in data:
+                user.postal_code = data['postal_code']
+                
+            # Update password if provided
+            if 'current_password' in data and 'new_password' in data:
+                if not check_password(data['current_password'], user.password):
+                    return Response({'error': 'Current password is incorrect'}, 
+                                 status=status.HTTP_400_BAD_REQUEST)
+                user.password = make_password(data['new_password'])
+                
+            user.save()
+            
+            return Response({
+                'success': True,
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'email': user.email,
+                    'name': user.name,
+                    'bio': user.bio,
+                    'address': user.address,
+                    'city': user.city,
+                    'state': user.state,
+                    'postal_code': user.postal_code,
+                    'is_volunteer': user.is_volunteer,
+                    'is_organization': user.is_organization,
+                    'created_at': user.created_at,
+                    'updated_at': user.updated_at
+                }
+            }, status=status.HTTP_200_OK)
+            
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@csrf_exempt
+@api_view(['GET'])
+def get_donation_fields(request):
+    """Get all active donation fields that users can donate to"""
+    try:
+        fields = DonationField.objects.filter(is_active=True)
+        fields_data = []
+        
+        for field in fields:
+            fields_data.append({
+                'id': field.id,
+                'title': field.title,
+                'description': field.description,
+                'icon': field.icon,
+                'color': field.color,
+                'target_amount': field.target_amount,
+                'raised_amount': field.raised_amount,
+                'progress_percentage': field.progress_percentage
+            })
+            
+        return Response(fields_data, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@csrf_exempt
+@api_view(['POST'])
+@token_required
+def create_donation(request):
+    """Create a new donation with QR code"""
+    try:
+        data = request.data
+        donation_field_id = data.get('donation_field_id')
+        amount = data.get('amount')
+        message = data.get('message', '')
+        is_anonymous = data.get('is_anonymous', False)
+        
+        # Validate input
+        if not donation_field_id:
+            return Response({'error': 'Donation field is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not amount or float(amount) <= 0:
+            return Response({'error': 'Valid amount is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get the donation field
+        try:
+            donation_field = DonationField.objects.get(pk=donation_field_id, is_active=True)
+        except DonationField.DoesNotExist:
+            return Response({'error': 'Invalid donation field'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Get the user
+        username = request.username
+        try:
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Generate unique QR code ID
+        qr_code_id = str(uuid.uuid4())
+        
+        # Create the donation record
+        donation = Donation.objects.create(
+            donation_field=donation_field,
+            user=user,
+            donor_name='' if is_anonymous else (user.name or user.username),
+            donor_email='' if is_anonymous else user.email,
+            amount=amount,
+            qr_code_id=qr_code_id,
+            is_anonymous=is_anonymous,
+            message=message,
+        )
+        
+        # Create JWT payload with expiration of 24 hours
+        payload = {
+            'donation_id': donation.id,
+            'amount': str(amount),
+            'field_id': donation_field.id,
+            'qr_code_id': qr_code_id,
+            'exp': datetime.utcnow() + timedelta(hours=24)
+        }
+        
+        # Sign the payload
+        token = jwt.encode(payload, settings.SECRET_KEY, algorithm='HS256')
+        
+        # Generate QR code with the token URL
+        qr_url = f"{settings.FRONTEND_URL}/verify-donation/{token}"
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(qr_url)
+        qr.make(fit=True)
+        
+        # Create QR code image
+        img = qr.make_image(fill_color="black", back_color="white")
+        buffer = BytesIO()
+        img.save(buffer)
+        qr_code_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        
+        return Response({
+            'success': True,
+            'donation': {
+                'id': donation.id,
+                'field_title': donation_field.title,
+                'amount': float(donation.amount),
+                'qr_code_id': donation.qr_code_id,
+                'status': donation.status,
+                'created_at': donation.created_at,
+                'qr_code_image': qr_code_image,
+                'token': token
+            }
+        }, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@csrf_exempt
+@api_view(['GET'])
+def verify_donation(request, token):
+    """Verify donation token and mark donation as completed"""
+    try:
+        # Decode and verify the JWT token
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+        except jwt.ExpiredSignatureError:
+            return Response({'error': 'Donation link has expired'}, status=status.HTTP_400_BAD_REQUEST)
+        except jwt.InvalidTokenError:
+            return Response({'error': 'Invalid donation token'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Extract donation details from payload
+        donation_id = payload.get('donation_id')
+        qr_code_id = payload.get('qr_code_id')
+        
+        # Get the donation
+        try:
+            donation = Donation.objects.get(id=donation_id, qr_code_id=qr_code_id)
+        except Donation.DoesNotExist:
+            return Response({'error': 'Donation not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Check if donation is already completed
+        if donation.status == 'completed':
+            return Response({'message': 'Donation already processed'}, status=status.HTTP_200_OK)
+        
+        # Update donation status to completed
+        donation.status = 'completed'
+        donation.completed_at = timezone.now()
+        donation.transaction_id = f"TXN-{uuid.uuid4().hex[:12].upper()}"
+        donation.save()
+        
+        return Response({
+            'success': True,
+            'message': 'Donation verified and completed successfully',
+            'donation': {
+                'id': donation.id,
+                'field_title': donation.donation_field.title,
+                'amount': float(donation.amount),
+                'transaction_id': donation.transaction_id,
+                'completed_at': donation.completed_at
+            }
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@csrf_exempt
+@api_view(['GET'])
+@token_required
+def get_user_donations(request):
+    """Get all donations made by a user"""
+    try:
+        # Get the username from the token
+        username = request.username
+        
+        # Get the user
+        try:
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Get all donations for the user
+        donations = Donation.objects.filter(user=user).order_by('-created_at')
+        
+        donations_data = []
+        for donation in donations:
+            donations_data.append({
+                'id': donation.id,
+                'field_id': donation.donation_field.id,
+                'field_title': donation.donation_field.title,
+                'amount': float(donation.amount),
+                'status': donation.status,
+                'transaction_id': donation.transaction_id,
+                'created_at': donation.created_at,
+                'completed_at': donation.completed_at
+            })
+        
+        return Response(donations_data, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@csrf_exempt
+@api_view(['GET'])
+def verify_donation_details(request, token):
+    """Get donation details from token without completing the transaction"""
+    try:
+        # Decode and verify the JWT token
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+        except jwt.ExpiredSignatureError:
+            return Response({'error': 'Donation link has expired'}, status=status.HTTP_400_BAD_REQUEST)
+        except jwt.InvalidTokenError:
+            return Response({'error': 'Invalid donation token'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Extract donation details from payload
+        donation_id = payload.get('donation_id')
+        qr_code_id = payload.get('qr_code_id')
+        
+        # Get the donation
+        try:
+            donation = Donation.objects.get(id=donation_id, qr_code_id=qr_code_id)
+        except Donation.DoesNotExist:
+            return Response({'error': 'Donation not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Return donation details without completing the transaction
+        return Response({
+            'id': donation.id,
+            'field_title': donation.donation_field.title,
+            'amount': float(donation.amount),
+            'status': donation.status,
+            'created_at': donation.created_at
+        }, status=status.HTTP_200_OK)
+        
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

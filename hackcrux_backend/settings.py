@@ -13,7 +13,8 @@ JWT_SECRET = os.environ.get('JWT_SECRET', SECRET_KEY)
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['192.168.21.75', '192.168.21.186', '*']
+
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -40,32 +41,18 @@ MIDDLEWARE = [
 ]
 
 # CORS settings
-CORS_ALLOW_ALL_ORIGINS = False  # Don't allow all origins for security
+CORS_ALLOW_ALL_ORIGINS = True  # Allow all origins temporarily to test mobile access
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",  # Your frontend URL
     "http://127.0.0.1:5173",
+    "http://192.168.21.186:5173",  # Your local IP address for mobile access
+    "https://192.168.21.186:5173",  # HTTPS version
 ]
 CORS_ALLOW_CREDENTIALS = True  # Allow cookies in cross-origin requests
 
-# Optional: Configure other CORS settings if needed
-CORS_ALLOW_METHODS = [
-    "DELETE",
-    "GET",
-    "OPTIONS",
-    "PATCH",
-    "POST",
-    "PUT",
-]
-CORS_ALLOW_HEADERS = [
-    "accept",
-    "accept-encoding",
-    "authorization",
-    "content-type",
-    "dnt",
-    "origin",
-    "user-agent",
-    "x-csrftoken",
-    "x-requested-with",
+# Also allow requests from mobile browser without specific port
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https?://192\.168\.21\.186(:[0-9]+)?$",
 ]
 
 ROOT_URLCONF = 'hackcrux_backend.urls'
@@ -125,3 +112,5 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+FRONTEND_URL = 'http://192.168.21.186:5173'  # Updated with your local IP for cross-device access

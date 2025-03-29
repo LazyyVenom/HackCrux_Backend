@@ -3,3 +3,5 @@ djangorestframework
 django-cors-headers
 pyjwt
 psycopg2
+qrcode
+Pillow  # Required by qrcode for image generation
