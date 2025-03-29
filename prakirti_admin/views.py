@@ -934,7 +934,7 @@ def admin_update_sos_alert_status_by_city(request, city):
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
-@token_required
+# @token_required
 def get_resources(request):
     """
     Get all resource capacities
