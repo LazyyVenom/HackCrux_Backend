@@ -126,7 +126,7 @@ class ResourceCapacity(models.Model):
     name = models.CharField(max_length=100)
     total_capacity = models.PositiveIntegerField()
     available_capacity = models.PositiveIntegerField()
-    state = models.CharField(max_length=100)
+    state = models.CharField(max_length=100)    
     city = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

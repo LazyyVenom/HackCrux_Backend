@@ -958,6 +958,7 @@ def get_resources(request):
             
         return Response(resources_data, status=status.HTTP_200_OK)
     except Exception as e:
+        print(e)
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
