@@ -1151,3 +1151,47 @@ def delete_resource(request, pk):
         }, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['PUT'])
+@token_required
+def free_resource(request, pk):
+    """
+    Free up resource capacity by adding specified amount to available capacity
+    """
+    try:
+        try:
+            resource = ResourceCapacity.objects.get(pk=pk)
+        except ResourceCapacity.DoesNotExist:
+            return Response({'error': 'Resource not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        data = request.data
+        amount = int(data.get('amount', 0))
+        
+        if amount <= 0:
+            return Response({'error': 'Amount must be greater than 0'}, 
+                           status=status.HTTP_400_BAD_REQUEST)
+                           
+        new_available = resource.available_capacity + amount
+        
+        if new_available > resource.total_capacity:
+            return Response({'error': 'Available capacity cannot exceed total capacity'}, 
+                           status=status.HTTP_400_BAD_REQUEST)
+                           
+        resource.available_capacity = new_available
+        resource.save()
+        
+        return Response({
+            'success': True,
+            'resource': {
+                'id': resource.id,
+                'resource_type': resource.resource_type,
+                'name': resource.name,
+                'total_capacity': resource.total_capacity,
+                'available_capacity': resource.available_capacity,
+                'state': resource.state,
+                'city': resource.city,
+                'updated_at': resource.updated_at,
+            }
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
