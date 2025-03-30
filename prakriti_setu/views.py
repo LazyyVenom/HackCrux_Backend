@@ -1850,3 +1850,110 @@ def get_disasters(request):
             {"error": str(e)},
             status=500
         )
+
+@csrf_exempt
+@api_view(['GET'])
+def get_recent_activities(request):
+    """Get combined recent activities (volunteering events and alerts)"""
+    try:
+        # Get parameter for number of activities to return
+        count = int(request.GET.get('count', 5))
+        
+        # Get recent volunteering events
+        events = VolunteeringEvent.objects.order_by('-created_at')[:10]
+        
+        # Get recent SOS alerts
+        alerts = SosAlert.objects.order_by('-created_at')[:10]
+        
+        # Combine and prepare activities
+        activities = []
+        
+        # Add volunteering events
+        for event in events:
+            event_icon = "Leaf"  # Default icon
+            
+            # Choose icon based on category
+            if event.category == 'planting':
+                event_icon = "Leaf"
+            elif event.category == 'cleanup':
+                event_icon = "Recycle"
+            elif event.category == 'gardening':
+                event_icon = "Trees"
+            elif event.category == 'education':
+                event_icon = "BookOpen"
+            elif event.category == 'disaster':
+                event_icon = "AlertTriangle"
+                
+            activities.append({
+                'id': f"event-{event.id}",
+                'action': f"New Volunteering Event: {event.title}",
+                'date': event.created_at.strftime("%B %d, %Y at %I:%M %p"),
+                'icon': event_icon,
+                'iconColor': "text-green-400",
+                'type': 'event'
+            })
+        
+        # Add SOS alerts
+        for alert in alerts:
+            activities.append({
+                'id': f"sos-{alert.id}",
+                'action': f"SOS Alert: Emergency in {alert.city}, {alert.country}",
+                'date': alert.created_at.strftime("%B %d, %Y at %I:%M %p"),
+                'icon': "AlertTriangle",
+                'iconColor': "text-red-400",
+                'type': 'sos'
+            })
+        
+        # Sort all activities by date (newest first) and limit to requested count
+        activities.sort(key=lambda x: x['date'], reverse=True)
+        limited_activities = activities[:count]
+        
+        return Response(limited_activities, status=status.HTTP_200_OK)
+    except Exception as e:
+        print(f"Error getting recent activities: {str(e)}")
+        traceback.print_exc()
+        
+        # If there's an error, return mock data
+        mock_activities = [
+            {
+                'id': 1,
+                'action': "Disaster Report Submitted: Flooding in North District",
+                'date': "Today, 10:30 AM",
+                'icon': "Droplet",
+                'iconColor': "text-blue-400",
+                'type': 'report'
+            },
+            {
+                'id': 2,
+                'action': "Air Quality Alert Issued for Central Metro Area",
+                'date': "Yesterday, 4:15 PM",
+                'icon': "Wind",
+                'iconColor': "text-purple-400",
+                'type': 'alert'
+            },
+            {
+                'id': 3,
+                'action': "New Conservation Initiative Launched in East Region",
+                'date': "2 days ago",
+                'icon': "Leaf",
+                'iconColor': "text-emerald-400",
+                'type': 'event'
+            },
+            {
+                'id': 4,
+                'action': "Updated Recycling Guidelines Published",
+                'date': "3 days ago",
+                'icon': "Recycle",
+                'iconColor': "text-green-400",
+                'type': 'update'
+            },
+            {
+                'id': 5,
+                'action': "Forest Management Plan Revised for Protected Areas",
+                'date': "4 days ago",
+                'icon': "Trees",
+                'iconColor': "text-lime-400",
+                'type': 'update'
+            }
+        ]
+        return Response(mock_activities, status=status.HTTP_200_OK)

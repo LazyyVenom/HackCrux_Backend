@@ -44,4 +44,7 @@ urlpatterns = [
     # Admin analytics endpoint
     path('admin/analytics/', views.admin_analytics, name='admin_analytics'),
     path('disasters/', views.get_disasters, name='get_disasters'),
+
+    # New endpoint for recent activities
+    path('activities/recent/', views.get_recent_activities, name='get_recent_activities'),
 ]
