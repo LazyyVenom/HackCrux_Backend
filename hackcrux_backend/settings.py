@@ -125,5 +125,8 @@ EMAIL_HOST_USER = 'piyushdayal108@gmail.com'
 EMAIL_HOST_PASSWORD = 'mxrf uchq efmw bjke'
 DEFAULT_FROM_EMAIL = 'Sankat Mochan <sankat.mochan@gmail.com>'
 
-# Frontend URL for email links
-FRONTEND_URL = 'http://localhost:5173'  # Change to your React frontend URL in production
+# # Frontend URL for email links
+# FRONTEND_URL = 'http://localhost:5173'  # Change to your React frontend URL in production
+
+# Frontend URL for email links and QR codes
+FRONTEND_URL = 'http://192.168.21.186:5173'  # Using IP address instead of localhost for mobile access
