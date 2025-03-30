@@ -1,42 +1,66 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Emergency SOS Alert</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <style>
       :root {
         --primary: #ff3b3b;
         --primary-dark: #d32f2f;
-        --background: #1a1a1a;
-        --surface: #2a2a2a;
+        --primary-light: #ffcdd2;
+        --background: #121212;
+        --surface: #1e1e1e;
+        --surface-variant: #252525;
         --text: #ffffff;
-        --text-secondary: rgba(255, 255, 255, 0.7);
+        --text-secondary: rgba(255, 255, 255, 0.8);
+        --text-tertiary: rgba(255, 255, 255, 0.6);
         --accent: #00c896;
+        --accent-alt: #00b8ff;
+        --spacing-xs: 4px;
+        --spacing-sm: 8px;
+        --spacing-md: 16px;
+        --spacing-lg: 24px;
+        --spacing-xl: 32px;
+        --spacing-xxl: 48px;
+        --border-radius-sm: 8px;
+        --border-radius-md: 12px;
+        --border-radius-lg: 16px;
+        --border-radius-xl: 24px;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
       }
 
       body {
-        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+        font-family: "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI",
           Roboto, sans-serif;
-        line-height: 1.6;
+        line-height: 1.7;
         color: var(--text);
         background-color: var(--background);
         margin: 0;
-        padding: 20px;
+        padding: var(--spacing-xl);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
       }
 
       .container {
-        max-width: 600px;
+        max-width: 650px;
         margin: 0 auto;
         background-color: var(--surface);
-        border-radius: 16px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
+        border-radius: var(--border-radius-lg);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
         overflow: hidden;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.08);
       }
 
       .header {
@@ -45,7 +69,7 @@
           var(--primary) 0%,
           var(--primary-dark) 100%
         );
-        padding: 32px 24px;
+        padding: var(--spacing-xl) var(--spacing-lg);
         text-align: center;
         position: relative;
         overflow: hidden;
@@ -59,107 +83,172 @@
         right: 0;
         bottom: 0;
         background: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='rgba(255,255,255,0.1)' fill-rule='evenodd'/%3E%3C/svg%3E");
-        opacity: 0.5;
+        opacity: 0.3;
+      }
+
+      .sos-icon-wrapper {
+        position: relative;
+        margin: 0 auto var(--spacing-lg);
+        width: 100px;
+        height: 100px;
       }
 
       .sos-icon {
-        width: 80px;
-        height: 80px;
-        background: rgba(255, 255, 255, 0.1);
+        width: 100px;
+        height: 100px;
+        background: rgba(255, 255, 255, 0.15);
         backdrop-filter: blur(10px);
         border-radius: 50%;
-        margin: 0 auto 16px;
         display: flex;
         align-items: center;
         justify-content: center;
         position: relative;
-        border: 2px solid rgba(255, 255, 255, 0.2);
+        border: 2px solid rgba(255, 255, 255, 0.25);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        z-index: 2;
       }
 
-      .pulse {
+      .pulse-1,
+      .pulse-2 {
         position: absolute;
         width: 100%;
         height: 100%;
         border-radius: 50%;
         background: rgba(255, 59, 59, 0.4);
+        z-index: 1;
+        top: 0;
+        left: 0;
+      }
+
+      .pulse-1 {
         animation: pulse 2s infinite;
+      }
+
+      .pulse-2 {
+        animation: pulse 2s infinite 0.5s;
       }
 
       @keyframes pulse {
         0% {
           transform: scale(1);
-          opacity: 0.4;
+          opacity: 0.6;
         }
         50% {
-          transform: scale(1.5);
+          transform: scale(1.6);
           opacity: 0;
         }
         100% {
           transform: scale(1);
-          opacity: 0.4;
+          opacity: 0;
         }
       }
 
       .sos-icon svg {
-        width: 40px;
-        height: 40px;
+        width: 50px;
+        height: 50px;
         fill: white;
       }
 
       h1 {
         margin: 0;
-        font-size: 28px;
-        font-weight: 700;
+        font-family: "Outfit", sans-serif;
+        font-size: 32px;
+        font-weight: 800;
         letter-spacing: -0.02em;
+        color: white;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        margin-bottom: var(--spacing-xs);
       }
 
       .subheader {
-        font-size: 16px;
-        margin-top: 8px;
-        opacity: 0.9;
+        font-size: 18px;
         font-weight: 500;
+        opacity: 0.95;
+        margin-top: var(--spacing-sm);
+        color: var(--primary-light);
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
       }
 
       .content {
-        padding: 32px 24px;
+        padding: var(--spacing-xl) var(--spacing-lg);
+      }
+
+      .urgent-banner {
+        background: rgba(255, 59, 59, 0.15);
+        border: 1px solid rgba(255, 59, 59, 0.3);
+        color: var(--primary);
+        padding: var(--spacing-md);
+        border-radius: var(--border-radius-md);
+        text-align: center;
+        font-weight: 600;
+        margin: var(--spacing-lg) 0;
+        backdrop-filter: blur(10px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--spacing-sm);
+        box-shadow: 0 4px 12px rgba(255, 59, 59, 0.1);
+      }
+
+      .urgent-banner svg {
+        width: 20px;
+        height: 20px;
+      }
+
+      p {
+        margin: var(--spacing-md) 0;
+        font-size: 16px;
+        color: var(--text-secondary);
+        line-height: 1.7;
       }
 
       .alert-details {
-        background: rgba(255, 59, 59, 0.1);
+        background: rgba(255, 59, 59, 0.08);
         border: 1px solid rgba(255, 59, 59, 0.2);
-        padding: 20px;
-        margin: 24px 0;
-        border-radius: 12px;
-        backdrop-filter: blur(10px);
+        padding: var(--spacing-lg);
+        margin: var(--spacing-xl) 0;
+        border-radius: var(--border-radius-md);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
       }
 
       .detail-row {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 12px 0;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding: var(--spacing-sm) 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       }
 
       .detail-row:last-child {
         border-bottom: none;
+        padding-bottom: 0;
+      }
+
+      .detail-row:first-child {
+        padding-top: 0;
       }
 
       .label {
         font-weight: 500;
-        color: var(--text-secondary);
+        font-size: 15px;
+        color: var(--text-tertiary);
       }
 
       .value {
         font-weight: 600;
         color: var(--text);
+        text-align: right;
+        font-size: 15px;
+        word-break: break-word;
+        max-width: 60%;
       }
 
       .map-container {
-        margin: 24px 0;
-        border-radius: 12px;
+        margin: var(--spacing-xl) 0;
+        border-radius: var(--border-radius-md);
         overflow: hidden;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+        border: 1px solid rgba(255, 255, 255, 0.08);
       }
 
       .map-image {
@@ -169,76 +258,82 @@
         display: block;
       }
 
+      .cta-section {
+        text-align: center;
+        margin-top: var(--spacing-xl);
+      }
+
       .cta-button {
         display: inline-block;
-        background: linear-gradient(135deg, var(--accent) 0%, #00a3ff 100%);
+        background: linear-gradient(
+          135deg,
+          var(--accent) 0%,
+          var(--accent-alt) 100%
+        );
         color: white;
         text-decoration: none;
-        padding: 16px 32px;
-        border-radius: 8px;
+        padding: var(--spacing-md) var(--spacing-xl);
+        border-radius: var(--border-radius-sm);
         font-weight: 600;
-        margin-top: 24px;
-        transition: transform 0.2s, box-shadow 0.2s;
+        font-size: 16px;
+        transition: all 0.2s ease;
         box-shadow: 0 4px 12px rgba(0, 200, 150, 0.3);
+        letter-spacing: 0.3px;
       }
 
       .cta-button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(0, 200, 150, 0.4);
+        box-shadow: 0 8px 20px rgba(0, 200, 150, 0.5);
       }
 
       .footer {
-        margin-top: 32px;
+        margin-top: var(--spacing-xl);
         text-align: center;
-        color: var(--text-secondary);
+        color: var(--text-tertiary);
         font-size: 14px;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-        padding-top: 24px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        padding: var(--spacing-lg) var(--spacing-md) var(--spacing-md);
+        background-color: var(--surface-variant);
       }
 
-      .urgent-banner {
-        background: rgba(255, 59, 59, 0.15);
-        border: 1px solid rgba(255, 59, 59, 0.3);
-        color: var(--primary);
-        padding: 16px;
-        border-radius: 8px;
-        text-align: center;
-        font-weight: 600;
-        margin: 24px 0;
-        backdrop-filter: blur(10px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-      }
-
-      .urgent-banner svg {
-        width: 20px;
-        height: 20px;
+      .footer p {
+        margin: var(--spacing-xs) 0;
+        color: var(--text-tertiary);
+        font-size: 13px;
       }
 
       @media (max-width: 600px) {
         body {
-          padding: 12px;
+          padding: var(--spacing-md);
         }
 
         .header {
-          padding: 24px 16px;
+          padding: var(--spacing-lg) var(--spacing-md);
         }
 
         .content {
-          padding: 24px 16px;
+          padding: var(--spacing-lg) var(--spacing-md);
         }
 
         .detail-row {
           flex-direction: column;
           align-items: flex-start;
-          gap: 4px;
+          gap: var(--spacing-xs);
+          padding: var(--spacing-md) 0;
+        }
+
+        .value {
+          max-width: 100%;
+          text-align: left;
         }
 
         .cta-button {
           width: 100%;
           text-align: center;
+        }
+
+        h1 {
+          font-size: 28px;
         }
       }
     </style>
@@ -246,13 +341,16 @@
   <body>
     <div class="container">
       <div class="header">
-        <div class="sos-icon">
-          <div class="pulse"></div>
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-            <path
-              d="M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm0 14.5a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13zm0-11a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 12 7.5zm0 8a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"
-            />
-          </svg>
+        <div class="sos-icon-wrapper">
+          <div class="sos-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+              <path
+                d="M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm0 14.5a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13zm0-11a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 12 7.5zm0 8a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"
+              />
+            </svg>
+          </div>
+          <div class="pulse-1"></div>
+          <div class="pulse-2"></div>
         </div>
         <h1>EMERGENCY SOS ALERT</h1>
         <div class="subheader">Critical Response Required</div>
@@ -331,7 +429,7 @@
           response.
         </p>
 
-        <div style="text-align: center">
+        <div class="cta-section">
           <a href="{{ dashboard_url }}" class="cta-button"
             >Access Emergency Dashboard →</a
           >
