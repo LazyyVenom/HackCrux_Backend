@@ -43,4 +43,5 @@ urlpatterns = [
     
     # Admin analytics endpoint
     path('admin/analytics/', views.admin_analytics, name='admin_analytics'),
+    path('disasters/', views.get_disasters, name='get_disasters'),
 ]

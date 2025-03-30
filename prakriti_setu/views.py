@@ -9,7 +9,7 @@ from .models import User, SosAlert
 from django.views.decorators.csrf import csrf_exempt
 from .utils import generate_jwt_token, token_required  # Import our JWT utilities
 from prakirti_admin.models import VolunteeringEvent, EventRegistration, DonationField, Donation, Admin
-from .api_utils import callGPT, get_location_info  # Import the missing function
+from .api_utils import callGPT, get_location_info,fetch_disaster_news
 import uuid
 from datetime import datetime, timedelta
 import qrcode
@@ -1806,3 +1806,47 @@ def admin_analytics(request):
         print(f"Error in admin_analytics: {str(e)}")
         print(traceback.format_exc())
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@csrf_exempt
+@api_view(['GET'])
+def get_disasters(request):
+    """
+    Get current and potential disaster events in India
+    """
+    try:
+        num_articles = int(request.GET.get('num_articles', 5))
+        
+        # Use the existing fetch_disaster_news function
+        disasters = fetch_disaster_news(
+            query="natural disaster india",
+            num_articles=num_articles,
+            output_format="python"
+        )
+        
+        # Map severity levels to importance levels for frontend
+        severity_to_importance = {
+            5: "very-important",
+            4: "very-important",
+            3: "mild-important",
+            2: "mild-important",
+            1: "normal"
+        }
+        
+        # Transform the data for frontend consumption
+        formatted_disasters = []
+        for disaster in disasters:
+            formatted_disasters.append({
+                "id": disaster["id"],
+                "title": disaster["title"],
+                "description": disaster["new_desc"],
+                "severity": severity_to_importance.get(disaster["severity"], "normal"),
+                "region": disaster["region"],
+                "link": disaster["link"]
+            })
+            
+        return Response(formatted_disasters)
+    except Exception as e:
+        return Response(
+            {"error": str(e)},
+            status=500
+        )

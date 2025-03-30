@@ -52,7 +52,7 @@ def get_news_articles(query, num_articles=20):
     result = googlenews.result(num_articles)
     return result
 
-def fetch_disaster_news(query="natural disaster india", num_articles=20, output_format="json", states=None):
+def fetch_disaster_news(query="natural disaster india", num_articles=30, output_format="json", states=None):
     """
     Fetch disaster news specific to India with distinct disaster events
     
@@ -63,6 +63,7 @@ def fetch_disaster_news(query="natural disaster india", num_articles=20, output_
         states: Optional list of Indian states to filter by
     """
     # Try more India-specific queries if needed
+    num_articles=30
     news_articles = get_news_articles(query, num_articles)
     if not news_articles and "india" not in query.lower():
         news_articles = get_news_articles(query + " india", num_articles)
