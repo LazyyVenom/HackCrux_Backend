@@ -10,6 +10,8 @@ from prakriti_setu.models import User, SosAlert
 import json
 import hashlib
 from prakriti_setu.utils import generate_jwt_token, token_required, verify_jwt_token
+from django.template import Template, Context, TemplateDoesNotExist
+from django.template.loader import get_template
 
 def hash_password(password):
     """Hash a password for storing."""
@@ -1005,9 +1007,8 @@ def get_resources_by_location(request):
             query_filter['state__iexact'] = state
         if city:
             query_filter['city__iexact'] = city
-            
-        if not query_filter:
-            return Response({'error': 'Please provide state and/or city parameters'}, 
+            if not query_filter:
+             return Response({'error': 'Please provide state and/or city parameters'}, 
                            status=status.HTTP_400_BAD_REQUEST)
         
         resources = ResourceCapacity.objects.filter(**query_filter).order_by('resource_type')
@@ -1192,6 +1193,445 @@ def free_resource(request, pk):
                 'city': resource.city,
                 'updated_at': resource.updated_at,
             }
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from django.conf import settings
+import json
+
+from .models import RescueTeam
+
+def populate_rescue_teams(request):
+    """
+    Populate rescue teams based on the teams in IssueAlert.jsx
+    """
+    print('req came')
+    # Teams from IssueAlert.jsx
+    teams_data = [
+        {
+            "name": "Alpha Response",
+            "specialization": "First Response",
+            "email": "sarthak.at1220@gmail.com",
+            "phone": "9876543210",
+            "state": "Maharashtra",
+            "city": "Mumbai",
+            "team_size": 8
+        },
+        {
+            "name": "Water Rescue Team",
+            "specialization": "Flood Rescue",
+            "email": "sorthak.at1220@gmail.com",
+            "phone": "9876543211",
+            "state": "Karnataka",
+            "city": "Bangalore",
+            "team_size": 6
+        },
+        {
+            "name": "Medical Unit 3",
+            "specialization": "Emergency Medical Response",
+            "email": "0201ai221060@jecjabalpur.ac.in",
+            "phone": "9876543212",
+            "state": "Madhya Pradesh",
+            "city": "Jabalpur",
+            "team_size": 5
+        },
+        {
+            "name": "Aerial Support",
+            "specialization": "Drone Surveillance",
+            "email": "0201ai221054@jecjabalpur.ac.in",
+            "phone": "9876543213",
+            "state": "Rajasthan",
+            "city": "Jaipur",
+            "team_size": 4
+        },
+        {
+            "name": "Engineering Assessment",
+            "specialization": "Structural Assessment",
+            "email": "0201ai221056@gmail.com",
+            "phone": "9876543214",
+            "state": "Gujarat",
+            "city": "Ahmedabad",
+            "team_size": 6
+        },
+        {
+            "name": "Heavy Equipment",
+            "specialization": "Debris Clearing",
+            "email": "choubey.anubhav253@gmaill.com",
+            "phone": "9876543215",
+            "state": "Uttar Pradesh",
+            "city": "Lucknow",
+            "team_size": 7
+        },
+        {
+            "name": "Evacuation Coordination",
+            "specialization": "Evacuation Management",
+            "email": "choubey.anubhav256@gmail.com",
+            "phone": "9876543216",
+            "state": "Tamil Nadu",
+            "city": "Chennai",
+            "team_size": 5
+        },
+        {
+            "name": "Relief Supply",
+            "specialization": "Aid Distribution",
+            "email": "0201ai221014@gmail.com",
+            "phone": "9876543217",
+            "state": "Telangana",
+            "city": "Hyderabad",
+            "team_size": 6
+        },
+        {
+            "name": "Traffic Control",
+            "specialization": "Route Management",
+            "email": "sarthak.at1220@gmail.com",
+            "phone": "9876543218",
+            "state": "Maharashtra", 
+            "city": "Pune",
+            "team_size": 4
+        },
+        {
+            "name": "Urban Search & Rescue",
+            "specialization": "Urban SAR Operations",
+            "email": "0201ai221060@jecjabalpur.ac.in",
+            "phone": "9876543219",
+            "state": "Delhi",
+            "city": "New Delhi",
+            "team_size": 10
+        }
+    ]
+    
+    created_count = 0
+    existing_count = 0
+    
+    for team_data in teams_data:
+        # Check if the team already exists
+        existing_team = RescueTeam.objects.filter(name=team_data["name"]).first()
+        
+        if existing_team:
+            existing_count += 1
+            # Update the team if needed
+            for key, value in team_data.items():
+                setattr(existing_team, key, value)
+            existing_team.save()
+        else:
+            # Create a new team
+            RescueTeam.objects.create(
+                name=team_data["name"],
+                description=f"{team_data['name']} specialized in {team_data['specialization']}",
+                email=team_data["email"],
+                phone=team_data["phone"],
+                specialization=team_data["specialization"],
+                team_size=team_data["team_size"],
+                state=team_data["state"],
+                city=team_data["city"],
+                is_active=True,
+                is_available=True
+            )
+            created_count += 1
+    
+    return JsonResponse({
+        "success": True,
+        "message": f"Rescue teams populated successfully. Created: {created_count}, Updated: {existing_count}",
+        "created": created_count,
+        "updated": existing_count
+    })
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def get_rescue_teams(request):
+    """Get all rescue teams for the frontend"""
+    teams = RescueTeam.objects.filter(is_active=True).values(
+        'id', 'name', 'specialization', 'state', 'city', 'team_size', 'is_available'
+    )
+    
+    return JsonResponse({
+        "success": True,
+        "count": len(teams),
+        "teams": list(teams)
+    })
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def toggle_team_availability(request):
+    """Toggle a team's availability status"""
+    try:
+        data = json.loads(request.body)
+        team_id = data.get('team_id')
+        
+        if not team_id:
+            return JsonResponse({"success": False, "message": "Team ID is required"}, status=400)
+            
+        team = RescueTeam.objects.get(id=team_id)
+        team.is_available = not team.is_available
+        team.save()
+        
+        return JsonResponse({
+            "success": True,
+            "message": f"Team '{team.name}' is now {'available' if team.is_available else 'unavailable'}",
+            "is_available": team.is_available
+        })
+    except RescueTeam.DoesNotExist:
+        return JsonResponse({"success": False, "message": "Team not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"success": False, "message": str(e)}, status=500)
+
+@api_view(['GET'])
+def get_available_rescue_teams(request):
+    """
+    Get all available rescue teams for disaster alert assignment
+    """
+    try:
+        # Get query parameters for filtering
+        state = request.query_params.get('state', None)
+        city = request.query_params.get('city', None)
+        
+        # Start with all active teams
+        teams = RescueTeam.objects.filter(is_active=True)
+        
+        # Apply filters if provided
+        if state:
+            teams = teams.filter(state__iexact=state)
+        if city:
+            teams = teams.filter(city__iexact=city)
+            
+        # Order by availability first, then name
+        teams = teams.order_by('-is_available', 'name')
+        
+        # Format the response
+        teams_data = []
+        for team in teams:
+            teams_data.append({
+                'id': team.id,
+                'name': team.name,
+                'specialization': team.specialization,
+                'team_size': team.team_size,
+                'state': team.state,
+                'city': team.city,
+                'is_available': team.is_available,
+                'email': team.email,
+                'phone': team.phone
+            })
+            
+        return Response({
+            'success': True,
+            'count': len(teams_data),
+            'teams': teams_data
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+from prakirti_admin.models import DisasterAlert 
+
+@api_view(['POST'])
+@token_required
+def create_disaster_alert(request):
+    """
+    Create a new disaster alert and notify selected teams directly from view
+    """
+    try:
+        data = request.data
+        
+        # Validate required fields
+        required_fields = ['title', 'description', 'state', 'city', 'severity']
+        for field in required_fields:
+            if field not in data:
+                return Response({'error': f'{field} is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get admin issuing the alert
+        admin_email = request.username
+        try:
+            admin = Admin.objects.get(email=admin_email)
+        except Admin.DoesNotExist:
+            return Response({'error': 'Admin not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        # Create the alert
+        alert = DisasterAlert.objects.create(
+            title=data['title'],
+            description=data['description'],
+            state=data['state'],
+            city=data['city'],
+            location_details=data.get('locationDetails', ''),
+            severity=data['severity'],
+            issued_by=admin
+        )
+        
+        # Assign teams if provided
+        team_ids = data.get('teams', [])
+        notification_results = []
+        
+        if team_ids:
+            print('team ids')
+            teams = RescueTeam.objects.filter(id__in=team_ids)
+            alert.teams.set(teams)
+            
+            # Direct email sending instead of using model method
+            from django.core.mail import send_mail
+            from django.template.loader import render_to_string
+            from django.conf import settings
+            
+            for team in teams:
+                print('team')
+                try:
+                    # Create email subject
+                    subject = f"URGENT: Disaster Alert - {alert.title}"
+                    
+                    # Prepare location string
+                    full_location = f"{alert.city}, {alert.state}"
+                    if alert.location_details:
+                        full_location = f"{alert.location_details}, {full_location}"
+                    
+                    # Create template context
+                    context = {
+                        'team_name': team.name,
+                        'alert': alert,
+                        'full_location': full_location
+                    }
+                    
+                    # Create HTML message using the template
+                    html_message = render_to_string('alertTemplate.html', context)
+                    
+                    # Plain text fallback message
+                    plain_message = f"""
+URGENT DISASTER ALERT - Immediate Response Required
+
+Hello {team.name},
+
+Your team has been assigned to respond to the following disaster alert:
+
+ALERT: {alert.title}
+SEVERITY: {alert.severity}
+LOCATION: {full_location}
+
+DESCRIPTION:
+{alert.description}
+
+Please acknowledge this alert and coordinate with your team members for immediate response.
+
+View details at: https://prakriti-setu.vercel.app/admin/alerts
+
+This is an automated notification from the Prakriti Setu Disaster Management System.
+Additional updates will be provided as the situation develops.
+
+© 2025 Prakriti Setu - Disaster Management System
+"""
+                    
+                    # Print email details for debugging
+                    print(f"Sending disaster alert email:")
+                    print(f"Subject: {subject}")
+                    print(f"From: {settings.EMAIL_HOST_USER}")
+                    print(f"To: {team.email}")
+                    print(f"Message length: {len(plain_message)} chars")
+                    
+                    # Send the email
+                    send_result = send_mail(
+                        subject=subject,
+                        message=plain_message,
+                        from_email=settings.EMAIL_HOST_USER,
+                        recipient_list=[team.email],
+                        html_message=html_message,
+                        fail_silently=False,
+                    )
+                    
+                    print(f"Email send result: {send_result}")
+                    
+                    notification_results.append({
+                        'team_id': team.id,
+                        'team_name': team.name,
+                        'email': team.email,
+                        'success': True
+                    })
+                    
+                except Exception as email_error:
+                    # Print detailed error information
+                    print(f"Error sending email to {team.name} <{team.email}>:")
+                    print(f"Error type: {type(email_error).__name__}")
+                    print(f"Error message: {str(email_error)}")
+                    import traceback
+                    print(f"Traceback: {traceback.format_exc()}")
+                    
+                    notification_results.append({
+                        'team_id': team.id,
+                        'team_name': team.name,
+                        'email': team.email,
+                        'success': False,
+                        'error': str(email_error)
+                    })
+        
+        return Response({
+            'success': True,
+            'alert': {
+                'id': alert.id,
+                'title': alert.title,
+                'description': alert.description,
+                'state': alert.state,
+                'city': alert.city,
+                'location_details': alert.location_details,
+                'severity': alert.severity,
+                'status': alert.status,
+                'created_at': alert.created_at,
+                'teams': [{'id': team.id, 'name': team.name} for team in alert.teams.all()],
+                'notifications': notification_results
+            }
+        }, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@token_required
+def get_disaster_alerts(request):
+    """
+    Get all disaster alerts
+    """
+    try:
+        alerts = DisasterAlert.objects.all().order_by('-created_at')
+        alerts_data = []
+        
+        for alert in alerts:
+            alerts_data.append({
+                'id': alert.id,
+                'title': alert.title,
+                'description': alert.description,
+                'state': alert.state,
+                'city': alert.city,
+                'location_details': alert.location_details,
+                'severity': alert.severity,
+                'status': alert.status,
+                'created_at': alert.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'teams': [{'id': team.id, 'name': team.name} for team in alert.teams.all()],
+                'resolved_at': alert.resolved_at.strftime('%Y-%m-%d %H:%M:%S') if alert.resolved_at else None
+            })
+            
+        return Response({
+            'success': True,
+            'alerts': alerts_data
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['DELETE'])
+@token_required
+def delete_disaster_alert(request, pk):
+    """
+    Delete a disaster alert
+    """
+    try:
+        try:
+            alert = DisasterAlert.objects.get(pk=pk)
+        except DisasterAlert.DoesNotExist:
+            return Response({'error': 'Disaster alert not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        alert_id = alert.id  # Store ID before deletion
+        alert.delete()
+        
+        return Response({
+            'success': True,
+            'message': 'Disaster alert deleted successfully',
+            'id': alert_id
         }, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

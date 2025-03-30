@@ -1,4 +1,8 @@
 from django.db import models
+from django.utils import timezone
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.conf import settings
 
 class Admin(models.Model):
     name = models.CharField(max_length=100)
@@ -132,4 +136,123 @@ class ResourceCapacity(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.resource_type} - {self.location}"
+        return f"{self.resource_type} - {self.name} ({self.city}, {self.state})"
+
+
+class RescueTeam(models.Model):
+    """Represents rescue teams that can respond to disaster alerts"""
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    email = models.EmailField(help_text="Team contact email for notifications")
+    phone = models.CharField(max_length=20)
+    specialization = models.CharField(max_length=100, help_text="Team's area of expertise")
+    team_size = models.PositiveIntegerField(default=1)
+    
+    # Location information
+    state = models.CharField(max_length=100)
+    city = models.CharField(max_length=100)
+    additional_location = models.CharField(max_length=200, blank=True)
+    
+    # Status information
+    is_active = models.BooleanField(default=True)
+    is_available = models.BooleanField(default=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.name} - {self.specialization}"
+    
+    def send_notification_email(self, alert):
+        """Send email notification to the team about a new alert"""
+        subject = f"URGENT: Disaster Alert - {alert.title}"
+        context = {
+            'team_name': self.name,
+            'alert': alert,
+        }
+        html_message = render_to_string('alertTemplate.html', context)
+        
+        try:
+            send_mail(
+                subject=subject,
+                message=f"Alert: {alert.title}\nLocation: {alert.get_full_location()}\nSeverity: {alert.severity}\n\n{alert.description}",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[self.email],
+                html_message=html_message,
+                fail_silently=False,
+            )
+            print('Email sent successfully')
+            return True
+        except Exception as e:
+            print(f"Error sending email to {self.name}: {str(e)}")
+            return False
+
+
+class DisasterAlert(models.Model):
+    """Model for tracking disaster alerts and emergency notifications"""
+    SEVERITY_CHOICES = [
+        ('Low', 'Low'),
+        ('Medium', 'Medium'),
+        ('High', 'High'),
+        ('Critical', 'Critical'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('resolved', 'Resolved'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    
+    # Location information
+    state = models.CharField(max_length=100)
+    city = models.CharField(max_length=100)
+    location_details = models.CharField(max_length=200, blank=True, help_text="Sector, area or landmark")
+    
+    severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES, default='Medium')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    
+    # Teams assigned to this alert
+    teams = models.ManyToManyField(RescueTeam, related_name='assigned_alerts', blank=True)
+    
+    issued_by = models.ForeignKey(Admin, on_delete=models.SET_NULL, null=True, related_name='issued_alerts')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    
+    def __str__(self):
+        return f"{self.title} - {self.severity} ({self.city}, {self.state})"
+    
+    def get_full_location(self):
+        """Returns the complete location string"""
+        if self.location_details:
+            return f"{self.location_details}, {self.city}, {self.state}"
+        return f"{self.city}, {self.state}"
+    
+    def resolve(self):
+        """Mark the alert as resolved"""
+        self.status = 'resolved'
+        self.resolved_at = timezone.now()
+        self.save()
+    
+    def notify_teams(self):
+        """Send notifications to all assigned teams"""
+        notification_results = []
+        for team in self.teams.all():
+            result = team.send_notification_email(self)
+            notification_results.append({
+                'team': team.name,
+                'success': result
+            })
+        return notification_results
+    
+    def save(self, *args, **kwargs):
+        """Override save method to handle new alerts"""
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        
+        # If this is a new alert, notify assigned teams
+        if is_new and self.teams.exists():
+            self.notify_teams()

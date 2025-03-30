@@ -38,4 +38,14 @@ urlpatterns = [
     path('resources/<int:pk>/update/', views.update_resource, name='update_resource'),
     path('resources/<int:pk>/delete/', views.delete_resource, name='delete_resource'),
     path('resources/<int:pk>/free/', views.free_resource, name='free_resource'),
+    
+    # Rescue team management endpoints
+    path('populate_teams/', views.populate_rescue_teams, name='populate_teams'),
+    path('rescueteams/', views.get_available_rescue_teams, name='get_rescue_teams'),
+    path('rescueteams/toggle/', views.toggle_team_availability, name='toggle_team_availability'),
+    
+    # Disaster alert endpoints
+    path('disaster-alerts/', views.get_disaster_alerts, name='get_disaster_alerts'),
+    path('disaster-alerts/create/', views.create_disaster_alert, name='create_disaster_alert'),
+    path('disaster-alerts/<int:pk>/', views.delete_disaster_alert, name='delete_disaster_alert'),
 ]
