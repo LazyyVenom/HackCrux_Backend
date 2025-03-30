@@ -71,6 +71,64 @@ def callGPT(system_prompt, user_prompt):
         print(error_message)
         raise RuntimeError(error_message)
 
+def callGemini(prompt):
+    """
+    Call Gemini API to get a response.
+    
+    Args:
+        prompt (str): The full prompt including system instructions and user input
+        
+    Returns:
+        str: The full response text
+    """
+    endpoint = f"{ENDPOINT}?key={API_KEY}"
+    
+    payload = {
+        "contents": [{
+            "parts": [{
+                "text": prompt
+            }]
+        }],
+        "generationConfig": {
+            "temperature": 0.7,
+            "topP": 0.95,
+            "topK": 40,
+            "maxOutputTokens": 8192,
+        }
+    }
+    
+    try:
+        response = requests.post(endpoint, json=payload)
+        response.raise_for_status()
+        response_data = response.json()
+        raw_text = response_data['candidates'][0]['content']['parts'][0]['text']
+    
+        # Extract only the JSON content without extra text
+        clean_response = extract_json_from_text(raw_text)
+        
+        # # For debugging
+        # print('clean_response:', clean_response,'*'*50)
+        # print('raw_text:', raw_text,'*'*50)
+        
+        return clean_response
+    except Exception as e:
+        print(f"Error in callGemini: {str(e)}")
+        return "I encountered an error processing your request."
+
+# Keep this for backward compatibility
+def callGeminiWithStreaming(prompt, stream=False):
+    """
+    Legacy function that now only supports non-streaming responses.
+    
+    Args:
+        prompt (str): The full prompt including system instructions and user input
+        stream (bool): Ignored parameter, kept for backward compatibility
+        
+    Returns:
+        str: The full response text
+    """    
+    return callGemini(prompt)
+
 def get_environmental_metrics(location):
     """Get environmental metrics for a specific location.
     

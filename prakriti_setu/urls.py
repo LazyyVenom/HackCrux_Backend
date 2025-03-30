@@ -47,4 +47,7 @@ urlpatterns = [
 
     # New endpoint for recent activities
     path('activities/recent/', views.get_recent_activities, name='get_recent_activities'),
+    
+    # New chatbot endpoint with streaming support
+    path('chatbot/message/', views.chatbot_message, name='chatbot_message'),
 ]

@@ -908,7 +908,6 @@ def verify_donation_details(request, token):
 
 @csrf_exempt
 @api_view(['POST'])
-@token_required
 def create_sos_alert(request):
     """Create a new SOS alert"""
     try:
@@ -1957,3 +1956,74 @@ def get_recent_activities(request):
             }
         ]
         return Response(mock_activities, status=status.HTTP_200_OK)
+
+@csrf_exempt
+@api_view(['POST'])
+def chatbot_message(request):
+    """
+    Process chatbot messages
+    """
+    try:
+        # Extract message and chat history from request
+        data = request.data
+        message = data.get('message', '')
+        chat_history = data.get('chat_history', [])
+        
+        if not message:
+            return Response({'error': 'Message is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Format chat history for the LLM context
+        formatted_history = ""
+        if chat_history:
+            for entry in chat_history:
+                role = entry.get('role', '')
+                content = entry.get('content','')
+                if role and content:
+                    formatted_history += f"{role.upper()}: {content}\n"
+        
+        # Create a prompt with chat history context
+        system_prompt = """You are Sankat Mochan AI, a concise environmental and disaster management assistant.
+        Provide brief, practical responses about:
+        1. Environmental protection
+        2. Disaster preparedness and response
+        3. Weather and climate information
+        4. Safety protocols during emergencies
+        5. Air and water quality
+        
+        Keep responses short and direct. Focus on actionable advice and scientific facts.
+        Avoid lengthy explanations. Limit responses to 2-3 short paragraphs maximum.
+        If you don't know something, admit it briefly rather than making up information.
+        """
+        
+        # The full prompt combines system instructions, history, and the current message
+        prompt = f"{system_prompt}\n\n"
+        if formatted_history:
+            prompt += f"PREVIOUS CONVERSATION:\n{formatted_history}\n"
+        prompt += f"USER: {message}\nASSISTANT:"
+        
+        try:
+            # Get response from Gemini
+            from .call_gemini import callGeminiWithStreaming
+            
+            # Get complete response as text
+            response_text = callGeminiWithStreaming(prompt, stream=False)
+            print('response_text:', response_text,'*'*50)
+            
+            return Response(
+                {'response': response_text},
+                status=status.HTTP_200_OK
+            )
+            
+        except Exception as e:
+            print(f"Error generating response: {str(e)}")
+            return Response(
+                {'error': 'Error generating response', 'details': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
+    except Exception as e:
+        print(f"Error in chatbot_message: {str(e)}")
+        return Response(
+            {'error': 'Failed to process message'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
