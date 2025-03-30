@@ -1982,7 +1982,7 @@ def chatbot_message(request):
                     formatted_history += f"{role.upper()}: {content}\n"
         
         # Create a prompt with chat history context
-        system_prompt = """You are Sankat Mochan AI, a concise environmental and disaster management assistant.
+        system_prompt = """You are Sahayak AI, a concise environmental and disaster management assistant.
         Provide brief, practical responses about:
         1. Environmental protection
         2. Disaster preparedness and response
